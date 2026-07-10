@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import LinkButtons, { FeasibilityBadge } from '../LinkButtons.jsx'
-import Markdown from '../Markdown.jsx'
+import Markdown, { plainText } from '../Markdown.jsx'
 import { api } from '../api.js'
 
 const VOTER_KEY = 'travel_share_voter'
@@ -67,7 +67,7 @@ export default function ShareTrip({ token }) {
     <div className="container">
       <div className="page-hero">
         <h1>{data.name}</h1>
-        <p>{data.brief}</p>
+        <p>{plainText(data.brief)}</p>
         <p className="muted small">Совместный план — отметьте, что хотите / не хотите</p>
       </div>
 
@@ -106,7 +106,7 @@ export default function ShareTrip({ token }) {
                 onClick={() => setOpenDay(openDay === idx ? -1 : idx)}
               >
                 <strong>
-                  {day.title}
+                  {plainText(day.title)}
                   {day.date ? ` · ${day.date}` : ''}
                 </strong>
                 <span>{openDay === idx ? '▾' : '▸'}</span>
@@ -127,7 +127,7 @@ export default function ShareTrip({ token }) {
                               <strong>
                                 {slot.start}–{slot.end}
                               </strong>
-                              <span>{slot.place}</span>
+                              <span>{plainText(slot.place)}</span>
                             </div>
                             {slot.body && <Markdown>{slot.body}</Markdown>}
                             {slot.transfer && (

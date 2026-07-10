@@ -51,7 +51,8 @@ def parse_day_slots(day_body: str) -> list[dict]:
     for i, match in enumerate(matches):
         start_pos = match.end()
         end_pos = matches[i + 1].start() if i + 1 < len(matches) else len(day_body)
-        place = re.sub(r"[*_`]", "", match.group(3)).strip()
+        place = re.sub(r"[*_`#]+", "", match.group(3)).strip()
+        place = re.sub(r"\s{2,}", " ", place)
         start_t = _norm_time(match.group(1))
         end_t = _norm_time(match.group(2))
         slots.append(
@@ -109,6 +110,8 @@ def parse_itinerary_days(
                 r"^##\s*Запасн", body, maxsplit=1, flags=re.IGNORECASE | re.MULTILINE
             )[0].strip()
         title = match.group(1).strip()
+        title = re.sub(r"[*_`#]+", "", title).strip()
+        title = re.sub(r"\s{2,}", " ", title)
         day_date = _date_from_title(title)
         if day_date is None and start_date is not None:
             day_date = start_date + timedelta(days=i)

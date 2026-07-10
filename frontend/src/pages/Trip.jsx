@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import AskChat from '../AskChat.jsx'
 import { coverForText } from '../covers.js'
 import LinkButtons, { FeasibilityBadge } from '../LinkButtons.jsx'
-import Markdown from '../Markdown.jsx'
+import Markdown, { plainText } from '../Markdown.jsx'
 import { announceTripReady, ensureNotifyPermission } from '../notify.js'
 import StreetSmart, { DayQuest } from '../StreetSmart.jsx'
 import { toast } from '../Toast.jsx'
@@ -77,11 +77,25 @@ export default function Trip({ tripId, onBack }) {
   const [modeHint, setModeHint] = useState(null)
   const [journal, setJournal] = useState([])
   const modeBootstrapped = useRef(false)
+  const wasFastExtras = useRef(false)
   const prevStatus = useRef(null)
 
   useEffect(() => {
     ensureNotifyPermission()
   }, [])
+
+  useEffect(() => {
+    if (extras?.fast) {
+      wasFastExtras.current = true
+      return
+    }
+    if (wasFastExtras.current && extras && !extras.fast) {
+      wasFastExtras.current = false
+      if (extras.center || extras.weather?.length) {
+        toast('Карта и погода готовы', 'ok')
+      }
+    }
+  }, [extras])
 
   useEffect(() => {
     let cancelled = false
@@ -397,7 +411,7 @@ export default function Trip({ tripId, onBack }) {
 
       <div className="page-hero trip-hero">
         <div className="row">
-          <p className="trip-brief">{trip.brief}</p>
+          <p className="trip-brief">{plainText(trip.brief)}</p>
           <div className="row gap wrap">
             {trip.status === 'completed' && (
               <>
@@ -611,13 +625,13 @@ export default function Trip({ tripId, onBack }) {
               {live.current_slot && (
                 <p>
                   <strong>Сейчас:</strong> {live.current_slot.start}–{live.current_slot.end}{' '}
-                  {live.current_slot.place}
+                  {plainText(live.current_slot.place)}
                 </p>
               )}
               {live.next_slot && (
                 <p>
                   <strong>Далее:</strong> {live.next_slot.start}–{live.next_slot.end}{' '}
-                  {live.next_slot.place}
+                  {plainText(live.next_slot.place)}
                 </p>
               )}
               {live.weather && (
@@ -643,6 +657,34 @@ export default function Trip({ tripId, onBack }) {
               </div>
             </>
           )}
+        </section>
+      )}
+
+      {(mode === 'onsite' || mode === 'plan') && extras?.fast && idle && itinerary && (
+        <div className="enrich-banner" role="status" aria-live="polite">
+          <span className="enrich-spinner" aria-hidden="true" />
+          <div>
+            <strong>Догружаем карту и погоду</strong>
+            <p className="muted small">
+              План уже готов — точки на карте и прогноз появятся через несколько секунд. Можно
+              листать дни ниже.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {(mode === 'onsite' || mode === 'plan') && extras?.fast && idle && itinerary && (
+        <section className="weather-strip weather-loading" aria-busy="true">
+          <h2>Погода</h2>
+          <div className="weather-row">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="weather-card skel-card" aria-hidden="true">
+                <div className="skel skel-mid" />
+                <div className="skel" />
+              </div>
+            ))}
+          </div>
+          <p className="muted small">Прогноз подгружается…</p>
         </section>
       )}
 
@@ -676,6 +718,22 @@ export default function Trip({ tripId, onBack }) {
                 </button>
               )
             })}
+          </div>
+        </section>
+      )}
+
+      {(mode === 'onsite' || mode === 'plan') && extras?.fast && idle && itinerary && (
+        <section className="map-section map-loading" aria-busy="true">
+          <div className="section-title">
+            <h2>Карта дня</h2>
+            <span className="muted small">{extras.destination || '…'}</span>
+          </div>
+          <div className="map-placeholder">
+            <span className="enrich-spinner" aria-hidden="true" />
+            <p>
+              <strong>Строим карту маршрута</strong>
+              <span className="muted"> Ищем координаты мест — обычно меньше минуты.</span>
+            </p>
           </div>
         </section>
       )}
@@ -747,11 +805,6 @@ export default function Trip({ tripId, onBack }) {
             </div>
           </div>
         )}
-        {itinerary && days && extras?.fast && (
-          <p className="muted small" style={{ marginBottom: 10 }}>
-            Карта и погода подгрузятся чуть позже…
-          </p>
-        )}
         {itinerary && days && (
           <div className="day-cards">
             {days.map((day, idx) => (
@@ -768,7 +821,7 @@ export default function Trip({ tripId, onBack }) {
                 >
                   <div className="day-expander-copy">
                     <strong>
-                      {day.title}
+                      {plainText(day.title)}
                       {day.date ? ` · ${day.date}` : ''}
                     </strong>
                     {day.weather && (
@@ -805,7 +858,7 @@ export default function Trip({ tripId, onBack }) {
                                 <strong>
                                   {slot.start}–{slot.end}
                                 </strong>
-                                <span className="slot-place">{slot.place}</span>
+                                <span className="slot-place">{plainText(slot.place)}</span>
                               </div>
                               {slot.body && <Markdown>{slot.body}</Markdown>}
                               {slot.transfer && (

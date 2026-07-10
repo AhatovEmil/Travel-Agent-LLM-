@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { coverForText } from '../covers.js'
+import { plainText } from '../Markdown.jsx'
 import ExamplePreview, { hasSeenExample, markExampleSeen } from '../ExamplePreview.jsx'
 
 const STATUS_LABELS = {
@@ -429,7 +430,7 @@ export default function Dashboard({ onOpen }) {
                   <h3>{t.name}</h3>
                   <span className={cls}>{label}</span>
                 </div>
-                <p className="muted clamp">{t.brief}</p>
+                <p className="muted clamp">{plainText(t.brief)}</p>
                 {t.status === 'running' && <p className="muted">Фаза: {t.current_phase || '…'}</p>}
                 <button
                   className="ghost danger"

@@ -3017,6 +3017,74 @@ button:active:not(:disabled) {
   }
 }
 
+.enrich-banner {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(13, 122, 122, 0.22);
+  border-radius: 14px;
+  background: rgba(13, 122, 122, 0.08);
+  animation: riseIn 0.35s ease;
+}
+
+.enrich-banner strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.enrich-banner p {
+  margin: 0;
+}
+
+.enrich-spinner {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  border: 2px solid rgba(13, 122, 122, 0.25);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: enrichSpin 0.7s linear infinite;
+}
+
+@keyframes enrichSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.map-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 180px;
+  padding: 20px;
+  border: 1px dashed rgba(13, 122, 122, 0.28);
+  border-radius: 16px;
+  background: rgba(255, 252, 248, 0.6);
+}
+
+.map-placeholder p {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.weather-loading .weather-card.skel-card {
+  min-width: 100px;
+  min-height: 88px;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.weather-loading .skel {
+  height: 12px;
+  margin: 6px 0;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;

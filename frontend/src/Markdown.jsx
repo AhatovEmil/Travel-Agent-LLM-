@@ -8,29 +8,48 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;')
 }
 
+/** Убрать markdown-разметку для обычного текста (заголовки, места, brief). */
+export function plainText(text) {
+  if (text == null) return ''
+  return String(text)
+    .replace(/\*\*\s*([\s\S]+?)\s*\*\*/g, '$1')
+    .replace(/__\s*([\s\S]+?)\s*__/g, '$1')
+    .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1$2')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*/g, '')
+    .replace(/__/g, '')
+    .replace(/(^|\s)\*(?=\s|$)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function inlineFormat(text) {
   let s = escapeHtml(text)
-  // жирный: **текст** или __текст__
-  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  s = s.replace(/__(.+?)__/g, '<strong>$1</strong>')
-  // курсив: *текст* или _текст_ (не трогаем уже обработанное)
+  // жирный: **текст** / ** текст ** (нежадный, по строке)
+  s = s.replace(/\*\*\s*(.+?)\s*\*\*/g, '<strong>$1</strong>')
+  s = s.replace(/__\s*(.+?)\s*__/g, '<strong>$1</strong>')
+  // курсив: *текст* (не трогаем остатки **)
   s = s.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
   s = s.replace(/(^|[^_])_([^_\n]+?)_(?!_)/g, '$1<em>$2</em>')
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>')
-  // убрать одиночные маркеры, если LLM оставил мусор
   s = s.replace(/(^|\s)#{1,6}\s+/g, '$1')
+  // вычистить оставшиеся маркеры от кривого ответа LLM
   s = s.replace(/\*\*/g, '')
   s = s.replace(/__/g, '')
+  s = s.replace(/(^|>|\s)\*(?=\s|<|$)/g, '$1')
   return s
 }
 
 function cleanHeadingText(text) {
-  return text.replace(/^#+\s*/, '').trim()
+  return plainText(text.replace(/^#+\s*/, ''))
 }
 
 export default function Markdown({ children }) {
   const source = typeof children === 'string' ? children : ''
-  const lines = source.replace(/\r\n/g, '\n').split('\n')
+  // на всякий случай схлопнуть «голые» ** по краям абзацев до разбора
+  const normalized = source.replace(/\r\n/g, '\n')
+  const lines = normalized.split('\n')
   const html = []
   let inUl = false
   let inOl = false
@@ -59,7 +78,6 @@ export default function Markdown({ children }) {
       continue
     }
 
-    // #### Заголовок → h2–h4 (слишком глубокие уровни схлопываем)
     const heading = trimmed.match(/^(#{1,6})\s+(.+)$/)
     if (heading) {
       closeLists()

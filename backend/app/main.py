@@ -7,6 +7,10 @@ from .routers import auth, share, trips
 
 ensure_schema()
 
+from .services.recover import fail_stuck_running_trips
+
+fail_stuck_running_trips()
+
 app = FastAPI(
     title=settings.app_name,
     description="ИИ-агент, который планирует поездки: маршрут, бюджет и чеклист.",

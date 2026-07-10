@@ -76,6 +76,7 @@ export const api = {
   enableShare: (id) => request(`/api/trips/${id}/share`, { method: 'POST' }),
   getVotes: (id) => request(`/api/trips/${id}/votes`),
   rebuildFromVotes: (id) => request(`/api/trips/${id}/rebuild-from-votes`, { method: 'POST' }),
+  recoverTrip: (id) => request(`/api/trips/${id}/recover`, { method: 'POST' }),
   getShared: (token) => request(`/api/share/${token}`),
   castVote: (token, payload) =>
     request(`/api/share/${token}/votes`, {

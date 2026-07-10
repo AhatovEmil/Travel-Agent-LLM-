@@ -49,6 +49,12 @@ def _require_llm_key() -> None:
         )
 
 
+def _require_llm_budget(user: User) -> None:
+    from ..services.rate_limit import check_llm_rate_limit
+
+    check_llm_rate_limit(user.id)
+
+
 def _require_idle(trip: Trip) -> None:
     if trip.status == "running":
         raise HTTPException(status.HTTP_409_CONFLICT, "Pipeline is already running")
@@ -123,6 +129,7 @@ def run_trip(
     trip = _get_owned_trip(trip_id, current_user, db)
     _require_idle(trip)
     _require_llm_key()
+    _require_llm_budget(current_user)
     trip.status = "running"
     trip.current_phase = "brief"
     trip.error = ""
@@ -147,6 +154,7 @@ def rerun_phase(
     trip = _get_owned_trip(trip_id, current_user, db)
     _require_idle(trip)
     _require_llm_key()
+    _require_llm_budget(current_user)
     if payload.phase not in PHASES:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown phase")
     trip.status = "running"
@@ -173,6 +181,7 @@ def chat_revise(
     trip = _get_owned_trip(trip_id, current_user, db)
     _require_idle(trip)
     _require_llm_key()
+    _require_llm_budget(current_user)
     has_itinerary = any(a.phase == "itinerary" for a in trip.artifacts)
     if not has_itinerary:
         raise HTTPException(
@@ -207,6 +216,7 @@ def ask_question(
 ):
     trip = _get_owned_trip(trip_id, current_user, db)
     _require_llm_key()
+    _require_llm_budget(current_user)
     question = payload.message.strip()
     history = [{"role": m.role, "content": m.content} for m in trip.messages]
     artifacts = {a.phase: a.content for a in trip.artifacts}
@@ -281,6 +291,7 @@ def trip_live_adjust(
     trip = _get_owned_trip(trip_id, current_user, db)
     _require_idle(trip)
     _require_llm_key()
+    _require_llm_budget(current_user)
     if not any(a.phase == "itinerary" for a in trip.artifacts):
         raise HTTPException(status.HTTP_409_CONFLICT, "Нет плана (itinerary)")
     trip.status = "running"
@@ -291,6 +302,23 @@ def trip_live_adjust(
     background_tasks.add_task(
         run_live_adjust, trip.id, payload.reason, payload.message.strip()
     )
+    return trip
+
+
+@router.post("/{trip_id}/recover", response_model=TripOut)
+def recover_stuck_trip(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from ..services.recover import recover_trip
+
+    trip = _get_owned_trip(trip_id, current_user, db)
+    if trip.status != "running":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Trip is not stuck in running")
+    recover_trip(trip)
+    db.commit()
+    db.refresh(trip)
     return trip
 
 
@@ -334,6 +362,7 @@ def rebuild_from_votes(
     trip = _get_owned_trip(trip_id, current_user, db)
     _require_idle(trip)
     _require_llm_key()
+    _require_llm_budget(current_user)
     if not trip.votes:
         raise HTTPException(status.HTTP_409_CONFLICT, "Нет голосов")
     trip.status = "running"

@@ -25,6 +25,7 @@
 - `GET /api/trips/{id}/extras` — дни, слоты, карта, погода, deep links, успеваемость
 - `GET /api/trips/{id}/live?lat=&lon=` — «я на месте»: текущий/следующий слот
 - `POST /api/trips/{id}/live/adjust` — `{reason: late|rain|custom, message?}` перестроить сегодняшний день (`202`)
+- `POST /api/trips/{id}/recover` — сбросить зависший `running` → `failed` (после рестарта сервера)
 - `POST /api/trips/{id}/share` — выдать `share_token` и путь `#/share/...`
 - `GET /api/trips/{id}/votes` — голоса друзей
 - `POST /api/trips/{id}/rebuild-from-votes` — пересобрать itinerary по голосам (`202`)
@@ -38,6 +39,9 @@
 
 Статусы: `draft | running | completed | failed`.  
 Фазы: `brief | itinerary | budget | checklist`.
+
+При старте сервера все `running` помечаются `failed` («Прервано перезапуском…»).  
+LLM-операции ограничены `LLM_RATE_LIMIT_PER_HOUR` (по умолчанию 20/час на пользователя) → `429`.
 
 ## Health
 

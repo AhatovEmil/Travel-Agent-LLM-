@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import math
+from datetime import date as date_cls
+from datetime import datetime
 
 from ..models import Trip
 from .geo import geocode
@@ -57,7 +59,6 @@ def build_trip_extras(trip: Trip, geocode_limit: int = 5) -> dict:
         place_cache[key] = hit
         return hit
 
-    # geocode slot places + general queries
     for day in days:
         for slot in day.get("slots") or []:
             if len(place_cache) >= geocode_limit + 3:
@@ -119,7 +120,9 @@ def build_trip_extras(trip: Trip, geocode_limit: int = 5) -> dict:
                     "gap_min": gap,
                     "distance_km": dist_km,
                     "walk_min": walk_min,
-                    "feasibility": _feasibility(gap, float(walk_min) if walk_min is not None else None),
+                    "feasibility": _feasibility(
+                        gap, float(walk_min) if walk_min is not None else None
+                    ),
                 }
             enriched.append(item)
         day["slots"] = enriched
@@ -137,25 +140,47 @@ def build_trip_extras(trip: Trip, geocode_limit: int = 5) -> dict:
 
 
 def build_live_status(trip: Trip, lat: float | None, lon: float | None) -> dict:
-    from datetime import date as date_cls
-    from datetime import datetime
-
     extras = build_trip_extras(trip, geocode_limit=4)
     today = date_cls.today().isoformat()
-    day = next((d for d in extras["days"] if d.get("date") == today), None)
-    if day is None and extras["days"]:
-        # если даты не совпали — берём первый день как демо
-        day = extras["days"][0]
+    days = extras["days"]
+    day = next((d for d in days if d.get("date") == today), None)
+    mode = "active"
+    notice = ""
+
+    if day is None:
+        if not days:
+            mode = "empty"
+            notice = "План ещё пуст — сначала сгенерируйте поездку."
+        else:
+            dates = [d.get("date") for d in days if d.get("date")]
+            if dates and today < min(dates):
+                mode = "preview"
+                day = days[0]
+                notice = (
+                    f"Демо: показываем день 1. Поездка начинается {min(dates)}."
+                )
+            elif dates and today > max(dates):
+                mode = "ended"
+                day = days[-1]
+                notice = f"Поездка уже закончилась ({max(dates)}). Показан последний день."
+            else:
+                mode = "off_plan"
+                day = days[0]
+                notice = "Сегодня нет в плане. Показан ближайший день для ориентира."
+
     now = datetime.now().strftime("%H:%M")
     slots = (day or {}).get("slots") or []
     current = None
     nxt = None
-    for slot in slots:
-        if slot["start"] <= now <= slot["end"]:
-            current = slot
-        elif slot["start"] > now and nxt is None:
-            nxt = slot
-    if current is None and nxt is None and slots:
+    if mode == "active":
+        for slot in slots:
+            if slot["start"] <= now <= slot["end"]:
+                current = slot
+            elif slot["start"] > now and nxt is None:
+                nxt = slot
+        if current is None and nxt is None and slots:
+            nxt = slots[0]
+    elif slots:
         nxt = slots[0]
 
     distance_to_next = None
@@ -165,10 +190,13 @@ def build_live_status(trip: Trip, lat: float | None, lon: float | None) -> dict:
     return {
         "now": now,
         "today": today,
+        "mode": mode,
+        "notice": notice,
         "day": day,
         "current_slot": current,
         "next_slot": nxt,
         "distance_km_to_next": distance_to_next,
         "weather": (day or {}).get("weather"),
         "destination": extras["destination"],
+        "can_adjust": mode in ("active", "preview", "off_plan", "ended") and bool(day),
     }

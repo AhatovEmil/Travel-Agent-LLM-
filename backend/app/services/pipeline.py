@@ -211,7 +211,11 @@ def run_live_adjust(trip_id: int, reason: str, message: str = "") -> None:
 
         engine = get_engine()
         new_day = engine.adjust_day(trip.name, trip.brief, day_md, reason, message)
+        # если день без слотов — дожимаем как мини-itinerary
+        if engine.itinerary_needs_structure(new_day):
+            new_day = engine.ensure_structured_itinerary(new_day)
         revised = replace_day_in_itinerary(current, day_index, new_day)
+        revised = engine.ensure_structured_itinerary(revised)
         _save_artifact(db, trip, "itinerary", revised)
         trip.status = "completed"
         db.commit()

@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 *.db
 .env
+.geocode_cache.json
 node_modules/
 dist/
 .vscode/

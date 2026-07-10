@@ -829,6 +829,59 @@ button:active:not(:disabled) {
   margin: 6px 0 0;
 }
 
+.share-box {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.share-url {
+  display: block;
+  word-break: break-all;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+
+.notice-bar {
+  margin: 8px 0 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.voter-sticky {
+  position: sticky;
+  top: 64px;
+  z-index: 5;
+  backdrop-filter: blur(8px);
+}
+
+.slot-card.voted-want {
+  border-color: rgba(31, 138, 91, 0.45);
+  background: rgba(31, 138, 91, 0.06);
+}
+
+.slot-card.voted-skip {
+  border-color: rgba(194, 59, 59, 0.35);
+  background: rgba(194, 59, 59, 0.05);
+}
+
+.selected-vote {
+  border-color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  color: var(--accent-hover) !important;
+}
+
+.vote-summary {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
 @media (max-width: 640px) {
   .topbar {
     padding: 12px 16px;

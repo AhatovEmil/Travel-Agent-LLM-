@@ -119,6 +119,7 @@ class TravelEngine:
             "Под слотом: что делать, как добраться, ориентир по еде рядом.\n"
             "В конце отдельный блок ## Запасной план на плохую погоду."
         )
+        text = self.ensure_structured_itinerary(text)
         self._context["itinerary"] = text
         return text
 
@@ -171,11 +172,42 @@ class TravelEngine:
             f"Текущий план (Itinerary):\n{current_itinerary}\n\n"
             f"Просьба пользователя: {message}\n\n"
             "Перепиши Itinerary целиком с учётом просьбы. "
-            "Сохрани структуру ## День N — ... и ## Запасной план на плохую погоду. "
+            "Сохрани структуру ## День N — YYYY-MM-DD — … и слоты "
+            "### HH:MM–HH:MM — Место, плюс ## Запасной план на плохую погоду. "
             "Не трогай то, о чём пользователь не просил, если это не мешает."
         )
+        text = self.ensure_structured_itinerary(text)
         self._context["itinerary"] = text
         return text
+
+    def itinerary_needs_structure(self, text: str) -> bool:
+        from .parse import parse_itinerary_days
+
+        days = parse_itinerary_days(text)
+        if not days:
+            return True
+        structured = 0
+        for day in days:
+            if day.get("slots"):
+                structured += 1
+        # если ни у одного дня нет слотов — нужен дожим
+        return structured == 0
+
+    def ensure_structured_itinerary(self, text: str) -> str:
+        """Один авто-дожим, если LLM не выдал слоты ### HH:MM–HH:MM."""
+        if not text or not self.itinerary_needs_structure(text):
+            return text
+        logger.info("Itinerary missing slots — requesting structured rewrite")
+        rewritten = self._complete(
+            "Перепиши план ниже в строгий формат.\n"
+            "Для каждого дня: ## День N — YYYY-MM-DD — заголовок\n"
+            "Внутри дня только слоты вида:\n"
+            "### HH:MM–HH:MM — Название места\n"
+            "Краткое описание под слотом.\n"
+            "В конце: ## Запасной план на плохую погоду\n\n"
+            f"Исходный план:\n{text[:6000]}"
+        )
+        return rewritten if rewritten.strip() else text
 
     def answer_question(
         self,
@@ -241,6 +273,7 @@ class TravelEngine:
             "want сохрани. Формат: ## День N — YYYY-MM-DD — … и "
             "### HH:MM–HH:MM — Место. В конце ## Запасной план на плохую погоду."
         )
+        text = self.ensure_structured_itinerary(text)
         self._context["itinerary"] = text
         return text
 

@@ -18,5 +18,8 @@ class Settings(BaseSettings):
 
     cors_origins: str = "*"
 
+    # Лимит LLM-операций на пользователя в час (run/chat/ask/adjust/…)
+    llm_rate_limit_per_hour: int = 20
+
 
 settings = Settings()

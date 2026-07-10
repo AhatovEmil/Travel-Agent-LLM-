@@ -22,6 +22,13 @@ export default function ShareTrip({ token }) {
     load()
   }, [token])
 
+  const myVote = (slotKey) => {
+    const name = voter.trim()
+    if (!name || !data?.votes?.[slotKey]) return null
+    const found = data.votes[slotKey].voters?.find((v) => v.voter === name)
+    return found?.value || null
+  }
+
   const vote = async (dayIndex, slotKey, value) => {
     const name = voter.trim()
     if (name.length < 1) {
@@ -54,6 +61,8 @@ export default function ShareTrip({ token }) {
     )
   if (!data) return <div className="container muted">Загрузка совместного плана…</div>
 
+  const hasAnySlots = (data.days || []).some((d) => (d.slots || []).length > 0)
+
   return (
     <div className="container">
       <div className="page-hero">
@@ -64,12 +73,12 @@ export default function ShareTrip({ token }) {
 
       {error && <div className="error">{error}</div>}
 
-      <div className="card slim">
-        <label className="field-label">Ваше имя</label>
+      <div className="card slim voter-sticky">
+        <label className="field-label">Как вас зовут</label>
         <input
           value={voter}
           onChange={(e) => setVoter(e.target.value)}
-          placeholder="Как вас подписать в голосах"
+          placeholder="Имя для голосов"
           maxLength={40}
         />
       </div>
@@ -82,6 +91,12 @@ export default function ShareTrip({ token }) {
 
       <section>
         <h2>План по дням</h2>
+        {!hasAnySlots && (
+          <p className="muted">
+            Владелец ещё не сгенерировал слоты по времени — покажите ему, что нужно перегенерировать
+            план.
+          </p>
+        )}
         <div className="day-cards">
           {(data.days || []).map((day, idx) => (
             <div key={`${day.title}-${idx}`} className="day-card">
@@ -101,8 +116,12 @@ export default function ShareTrip({ token }) {
                     <div className="slot-list">
                       {day.slots.map((slot) => {
                         const agg = data.votes?.[slot.slot_key]
+                        const mine = myVote(slot.slot_key)
                         return (
-                          <div key={slot.slot_key} className="slot-card">
+                          <div
+                            key={slot.slot_key}
+                            className={`slot-card ${mine ? `voted-${mine}` : ''}`}
+                          >
                             <div className="row">
                               <strong>
                                 {slot.start}–{slot.end}
@@ -118,17 +137,18 @@ export default function ShareTrip({ token }) {
                             )}
                             <p className="muted small">
                               👍 {agg?.want || 0} · 👎 {agg?.skip || 0}
+                              {mine ? ` · ваш голос: ${mine === 'want' ? 'хочу' : 'не хочу'}` : ''}
                             </p>
                             <div className="row gap">
                               <button
-                                className="ghost compact"
+                                className={`ghost compact ${mine === 'want' ? 'selected-vote' : ''}`}
                                 disabled={busy}
                                 onClick={() => vote(day.day_index ?? idx, slot.slot_key, 'want')}
                               >
                                 Хочу
                               </button>
                               <button
-                                className="ghost compact"
+                                className={`ghost compact ${mine === 'skip' ? 'selected-vote' : ''}`}
                                 disabled={busy}
                                 onClick={() => vote(day.day_index ?? idx, slot.slot_key, 'skip')}
                               >

@@ -26,7 +26,9 @@ export default function Trip({ tripId, onBack }) {
   const [actionError, setActionError] = useState('')
   const [live, setLive] = useState(null)
   const [liveBusy, setLiveBusy] = useState(false)
+  const [liveCoords, setLiveCoords] = useState({ lat: null, lon: null })
   const [shareMsg, setShareMsg] = useState('')
+  const [shareUrl, setShareUrl] = useState('')
 
   useEffect(() => {
     let timer
@@ -60,6 +62,14 @@ export default function Trip({ tripId, onBack }) {
             if (prev != null) return prev
             return arts[0]?.id ?? null
           })
+          if (liveCoords.lat != null || live) {
+            api
+              .getLive(tripId, liveCoords.lat, liveCoords.lon)
+              .then((L) => {
+                if (!cancelled) setLive(L)
+              })
+              .catch(() => {})
+          }
         }
       } catch (err) {
         if (!cancelled) setError(err.message)
@@ -146,6 +156,7 @@ export default function Trip({ tripId, onBack }) {
     setLiveBusy(true)
     setActionError('')
     const done = (lat, lon) => {
+      setLiveCoords({ lat, lon })
       api
         .getLive(tripId, lat, lon)
         .then(setLive)
@@ -164,6 +175,7 @@ export default function Trip({ tripId, onBack }) {
   }
 
   const adjustLive = async (reason) => {
+    if (!idle || !itinerary || (live && live.can_adjust === false)) return
     setActionError('')
     setLiveBusy(true)
     try {
@@ -175,11 +187,22 @@ export default function Trip({ tripId, onBack }) {
     }
   }
 
+  const recover = async () => {
+    setActionError('')
+    try {
+      const t = await api.recoverTrip(tripId)
+      setTrip(t)
+    } catch (err) {
+      setActionError(err.message)
+    }
+  }
+
   const copyShare = async () => {
     setShareMsg('')
     try {
       const res = await api.enableShare(tripId)
       const url = `${window.location.origin}${window.location.pathname}${res.share_path}`
+      setShareUrl(url)
       await navigator.clipboard.writeText(url)
       setShareMsg('Ссылка скопирована')
       setTrip({ ...trip, share_token: res.share_token })
@@ -230,10 +253,31 @@ export default function Trip({ tripId, onBack }) {
         <p>{trip.brief}</p>
         {trip.start_date && <p className="muted small">Старт: {trip.start_date}</p>}
         {shareMsg && <p className="muted small">{shareMsg}</p>}
+        {shareUrl && (
+          <div className="share-box">
+            <code className="share-url">{shareUrl}</code>
+            <div className="row gap wrap">
+              <button className="ghost compact" onClick={() => navigator.clipboard.writeText(shareUrl)}>
+                Копировать ещё раз
+              </button>
+              <a className="ghost compact" href={shareUrl}>
+                Открыть превью
+              </a>
+            </div>
+          </div>
+        )}
       </div>
       <p className="muted notice">
         Черновик от ИИ: адреса, часы работы и цены ориентировочные — проверяйте перед поездкой.
       </p>
+      {trip.status === 'running' && (
+        <div className="notice-bar">
+          Агент работает… Если зависло после перезапуска сервера —{' '}
+          <button type="button" className="linkish" onClick={recover}>
+            сбросить статус
+          </button>
+        </div>
+      )}
       {trip.error && <div className="error">{trip.error}</div>}
       {downloadError && <div className="error">{downloadError}</div>}
       {actionError && <div className="error">{actionError}</div>}
@@ -266,8 +310,9 @@ export default function Trip({ tripId, onBack }) {
           </div>
           {live && (
             <>
+              {live.notice && <p className="muted small">{live.notice}</p>}
               <p className="muted small">
-                Сейчас {live.now}
+                Режим: {live.mode} · сейчас {live.now}
                 {live.day?.title ? ` · ${live.day.title}` : ''}
                 {live.distance_km_to_next != null
                   ? ` · до следующей точки ~${live.distance_km_to_next} км`
@@ -291,10 +336,18 @@ export default function Trip({ tripId, onBack }) {
                 </p>
               )}
               <div className="row gap wrap">
-                <button className="ghost" onClick={() => adjustLive('late')} disabled={liveBusy}>
+                <button
+                  className="ghost"
+                  onClick={() => adjustLive('late')}
+                  disabled={liveBusy || !idle || live.can_adjust === false}
+                >
                   Опаздываю — сдвинь день
                 </button>
-                <button className="ghost" onClick={() => adjustLive('rain')} disabled={liveBusy}>
+                <button
+                  className="ghost"
+                  onClick={() => adjustLive('rain')}
+                  disabled={liveBusy || !idle || live.can_adjust === false}
+                >
                   Дождь — перестрой день
                 </button>
               </div>
@@ -421,7 +474,10 @@ export default function Trip({ tripId, onBack }) {
               Пересобрать по голосам
             </button>
           </div>
-          <p className="muted small">Всего отметок: {votes.length}</p>
+          <p className="vote-summary">
+            <strong>{votes.length}</strong> отметок от{' '}
+            <strong>{new Set(votes.map((v) => v.voter)).size}</strong> человек
+          </p>
         </section>
       )}
 

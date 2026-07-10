@@ -13,8 +13,15 @@ def _mock_engine(monkeypatch):
     engine = TravelEngine()
 
     def fake_complete(prompt, temperature=0.5):
+        if "Вопрос пользователя:" in prompt:
+            return "На еду ориентировочно 2000–3000 ₽ в день. Цены нужно уточнять на месте."
+        if "Перепиши Itinerary" in prompt:
+            return "# Itinerary\n\n## День 1 — пляжи\nТолько море.\n\n## День 2\nЕщё пляж."
         if "Составь подробный Itinerary" in prompt:
-            return "# Itinerary\n\n## День 1\nПляж и набережная."
+            return (
+                "# Itinerary\n\n## День 1 — обзор\nПляж и **Батумский бульвар**.\n\n"
+                "## День 2\nМузей и еда.\n\n## Запасной план на плохую погоду\nКафе."
+            )
         if "Составь Budget" in prompt:
             return "# Budget\n\nИтого ~50 000 ₽."
         if "Составь Checklist" in prompt:
@@ -103,3 +110,96 @@ def test_export_markdown(client, auth_headers, monkeypatch):
 def test_export_before_completion_conflict(client, auth_headers):
     trip_id = client.post("/api/trips", json=TRIP, headers=auth_headers).json()["id"]
     assert client.get(f"/api/trips/{trip_id}/export", headers=auth_headers).status_code == 409
+
+
+def test_export_pdf(client, auth_headers, monkeypatch):
+    _mock_engine(monkeypatch)
+    trip_id = client.post("/api/trips", json=TRIP, headers=auth_headers).json()["id"]
+    assert _run_to_completion(client, auth_headers, trip_id) == "completed"
+
+    response = client.get(f"/api/trips/{trip_id}/export.pdf", headers=auth_headers)
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("application/pdf")
+    assert response.content[:4] == b"%PDF"
+
+
+def test_ask_question_saves_history(client, auth_headers, monkeypatch):
+    engine = _mock_engine(monkeypatch)
+    monkeypatch.setattr("app.routers.trips.get_engine", lambda: engine)
+    trip_id = client.post("/api/trips", json=TRIP, headers=auth_headers).json()["id"]
+    assert _run_to_completion(client, auth_headers, trip_id) == "completed"
+
+    response = client.post(
+        f"/api/trips/{trip_id}/ask",
+        json={"message": "сколько примерно на еду в день?"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert "2000" in body["reply"] or "еду" in body["reply"].lower()
+    assert len(body["messages"]) >= 2
+    assert body["messages"][0]["role"] == "user"
+    assert body["messages"][1]["role"] == "assistant"
+
+    listed = client.get(f"/api/trips/{trip_id}/messages", headers=auth_headers).json()
+    assert len(listed) >= 2
+
+
+def test_rerun_single_phase(client, auth_headers, monkeypatch):
+    _mock_engine(monkeypatch)
+    trip_id = client.post("/api/trips", json=TRIP, headers=auth_headers).json()["id"]
+    assert _run_to_completion(client, auth_headers, trip_id) == "completed"
+
+    response = client.post(
+        f"/api/trips/{trip_id}/phases/rerun",
+        json={"phase": "budget"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 202
+    assert _wait_status(client, auth_headers, trip_id) == "completed"
+    arts = client.get(f"/api/trips/{trip_id}/artifacts", headers=auth_headers).json()
+    assert any(a["phase"] == "budget" for a in arts)
+
+
+def test_chat_revises_itinerary(client, auth_headers, monkeypatch):
+    _mock_engine(monkeypatch)
+    trip_id = client.post("/api/trips", json=TRIP, headers=auth_headers).json()["id"]
+    assert _run_to_completion(client, auth_headers, trip_id) == "completed"
+
+    response = client.post(
+        f"/api/trips/{trip_id}/chat",
+        json={"message": "убери музеи, добавь пляжи"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 202
+    assert _wait_status(client, auth_headers, trip_id) == "completed"
+    arts = {a["phase"]: a["content"] for a in client.get(f"/api/trips/{trip_id}/artifacts", headers=auth_headers).json()}
+    assert "пляж" in arts["itinerary"].lower()
+
+
+def test_extras_parses_days(client, auth_headers, monkeypatch):
+    _mock_engine(monkeypatch)
+    monkeypatch.setattr("app.services.extras.geocode", lambda q: {"name": "Batumi", "lat": 41.65, "lon": 41.64, "label": "Batumi", "query": q})
+    monkeypatch.setattr(
+        "app.services.extras.fetch_weather",
+        lambda lat, lon, days=5: [{"date": "2026-07-10", "temp_max": 28, "temp_min": 20, "code": 0, "label": "Ясно"}],
+    )
+    trip_id = client.post("/api/trips", json=TRIP, headers=auth_headers).json()["id"]
+    assert _run_to_completion(client, auth_headers, trip_id) == "completed"
+
+    extras = client.get(f"/api/trips/{trip_id}/extras", headers=auth_headers).json()
+    assert extras["destination"]
+    assert len(extras["days"]) >= 2
+    assert extras["days"][0]["title"].lower().startswith("день")
+    assert extras["center"]["lat"] == 41.65
+    assert extras["weather"][0]["label"] == "Ясно"
+
+
+def _wait_status(client, headers, trip_id, timeout=30):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        status = client.get(f"/api/trips/{trip_id}", headers=headers).json()["status"]
+        if status in ("completed", "failed"):
+            return status
+        time.sleep(0.2)
+    raise AssertionError("Job did not finish in time")

@@ -42,6 +42,9 @@ class Trip(Base):
     artifacts: Mapped[list["Artifact"]] = relationship(
         back_populates="trip", cascade="all, delete-orphan", order_by="Artifact.id"
     )
+    messages: Mapped[list["ChatMessage"]] = relationship(
+        back_populates="trip", cascade="all, delete-orphan", order_by="ChatMessage.id"
+    )
 
 
 class Artifact(Base):
@@ -55,3 +58,15 @@ class Artifact(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     trip: Mapped[Trip] = relationship(back_populates="artifacts")
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trip_id: Mapped[int] = mapped_column(ForeignKey("trips.id"), index=True, nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)  # user | assistant
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    trip: Mapped[Trip] = relationship(back_populates="messages")

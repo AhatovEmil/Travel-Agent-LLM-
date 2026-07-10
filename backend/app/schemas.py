@@ -52,3 +52,25 @@ class ArtifactOut(BaseModel):
     title: str
     content: str
     created_at: datetime
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=3, max_length=2000)
+
+
+class PhaseRerunRequest(BaseModel):
+    phase: str = Field(pattern="^(brief|itinerary|budget|checklist)$")
+
+
+class ChatMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+
+
+class AskResponse(BaseModel):
+    reply: str
+    messages: list[ChatMessageOut]

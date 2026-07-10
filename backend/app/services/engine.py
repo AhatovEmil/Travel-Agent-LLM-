@@ -110,9 +110,11 @@ class TravelEngine:
         brief = self._context.get("brief", user_brief)
         text = self._complete(
             f"Поездка «{name}».\n\nBrief:\n{brief}\n\n"
-            "Составь подробный Itinerary (план по дням):\n"
-            "Для каждого дня: утро / день / вечер, места, ориентировочное время, "
-            "как добраться, что поесть рядом. В конце — запасной план на плохую погоду."
+            "Составь подробный Itinerary (план по дням).\n"
+            "ОБЯЗАТЕЛЬНО для каждого дня заголовок вида: ## День 1 — ...\n"
+            "Внутри дня: утро / день / вечер, конкретные места (можно выделять **названием**), "
+            "ориентировочное время, как добраться, что поесть рядом.\n"
+            "В конце отдельный блок ## Запасной план на плохую погоду."
         )
         self._context["itinerary"] = text
         return text
@@ -142,6 +144,62 @@ class TravelEngine:
         )
         self._context["checklist"] = text
         return text
+
+    def load_context_from_artifacts(self, artifacts: dict[str, str]) -> None:
+        self._context.update({k: v for k, v in artifacts.items() if v})
+
+    def regenerate_phase(self, phase: str, name: str, user_brief: str) -> str:
+        generators = {
+            "brief": self.generate_brief,
+            "itinerary": self.generate_itinerary,
+            "budget": self.generate_budget,
+            "checklist": self.generate_checklist,
+        }
+        if phase not in generators:
+            raise LLMGenerationError(f"Неизвестная фаза: {phase}", phase=phase)
+        return generators[phase](name, user_brief)
+
+    def revise_itinerary(
+        self, name: str, user_brief: str, current_itinerary: str, message: str
+    ) -> str:
+        brief = self._context.get("brief", user_brief)
+        text = self._complete(
+            f"Поездка «{name}».\n\nBrief:\n{brief}\n\n"
+            f"Текущий план (Itinerary):\n{current_itinerary}\n\n"
+            f"Просьба пользователя: {message}\n\n"
+            "Перепиши Itinerary целиком с учётом просьбы. "
+            "Сохрани структуру ## День N — ... и ## Запасной план на плохую погоду. "
+            "Не трогай то, о чём пользователь не просил, если это не мешает."
+        )
+        self._context["itinerary"] = text
+        return text
+
+    def answer_question(
+        self,
+        name: str,
+        user_brief: str,
+        artifacts: dict[str, str],
+        history: list[dict[str, str]],
+        question: str,
+    ) -> str:
+        parts = [f"Поездка «{name}».", f"Краткое ТЗ пользователя:\n{user_brief}"]
+        for phase in ("brief", "itinerary", "budget", "checklist"):
+            if artifacts.get(phase):
+                parts.append(f"--- {phase} ---\n{artifacts[phase][:3500]}")
+        hist_lines = []
+        for msg in history[-8:]:
+            role = "Пользователь" if msg.get("role") == "user" else "Ассистент"
+            hist_lines.append(f"{role}: {msg.get('content', '')}")
+        if hist_lines:
+            parts.append("Недавний диалог:\n" + "\n".join(hist_lines))
+        parts.append(
+            f"Вопрос пользователя: {question}\n\n"
+            "Ответь коротко и по делу на русском. Опирайся на план выше. "
+            "Не переписывай весь itinerary. Если просят изменить маршрут целиком — "
+            "подскажи воспользоваться блоком «Изменить план». "
+            "Цены и часы помечай как ориентировочные."
+        )
+        return self._complete("\n\n".join(parts), temperature=0.4)
 
 
 def get_engine() -> TravelEngine:

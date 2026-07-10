@@ -40,11 +40,29 @@ export const api = {
   getTrip: (id) => request(`/api/trips/${id}`),
   deleteTrip: (id) => request(`/api/trips/${id}`, { method: 'DELETE' }),
   runTrip: (id) => request(`/api/trips/${id}/run`, { method: 'POST' }),
+  rerunPhase: (id, phase) =>
+    request(`/api/trips/${id}/phases/rerun`, {
+      method: 'POST',
+      body: JSON.stringify({ phase }),
+    }),
+  chatTrip: (id, message) =>
+    request(`/api/trips/${id}/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
+  askTrip: (id, message) =>
+    request(`/api/trips/${id}/ask`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
+  getMessages: (id) => request(`/api/trips/${id}/messages`),
   getArtifacts: (id) => request(`/api/trips/${id}/artifacts`),
+  getExtras: (id) => request(`/api/trips/${id}/extras`),
 }
 
-export async function downloadTripMarkdown(id, name) {
-  const response = await fetch(`/api/trips/${id}/export`, {
+export async function downloadTripFile(id, name, format = 'md') {
+  const path = format === 'pdf' ? `/api/trips/${id}/export.pdf` : `/api/trips/${id}/export`
+  const response = await fetch(path, {
     headers: { Authorization: `Bearer ${getToken()}` },
   })
   if (!response.ok) {
@@ -62,7 +80,12 @@ export async function downloadTripMarkdown(id, name) {
   const link = document.createElement('a')
   link.href = url
   const safe = (name || 'trip').replace(/[^\w\-а-яА-ЯёЁ ]+/gi, '').trim() || 'trip'
-  link.download = `${safe}.md`
+  link.download = `${safe}.${format === 'pdf' ? 'pdf' : 'md'}`
   link.click()
   URL.revokeObjectURL(url)
+}
+
+/** @deprecated use downloadTripFile */
+export async function downloadTripMarkdown(id, name) {
+  return downloadTripFile(id, name, 'md')
 }

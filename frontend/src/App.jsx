@@ -3,6 +3,7 @@ import { clearToken, getToken } from './api.js'
 import ToastHost from './Toast.jsx'
 import Auth from './pages/Auth.jsx'
 import Dashboard from './pages/Dashboard.jsx'
+import Faq from './pages/Faq.jsx'
 import ShareTrip from './pages/ShareTrip.jsx'
 import Trip from './pages/Trip.jsx'
 
@@ -13,6 +14,7 @@ function parseHash() {
   if (share) return { view: 'share', token: decodeURIComponent(share[1]), tripId: null }
   const trip = path.match(/^\/trip\/(\d+)/)
   if (trip) return { view: 'trip', tripId: Number(trip[1]), token: null }
+  if (path === '/faq' || path.startsWith('/faq/')) return { view: 'faq', tripId: null, token: null }
   return { view: 'home', tripId: null, token: null }
 }
 
@@ -43,6 +45,10 @@ export default function App() {
     window.location.hash = '#/'
   }
 
+  const goFaq = () => {
+    window.location.hash = '#/faq'
+  }
+
   const logout = () => {
     clearToken()
     setAuthed(false)
@@ -56,9 +62,33 @@ export default function App() {
           <button className="brand" onClick={goHome}>
             Travel <span>Agent</span>
           </button>
+          <button className="ghost compact" onClick={goFaq}>
+            FAQ
+          </button>
         </header>
         <main>
           <ShareTrip token={route.token} />
+        </main>
+        <ToastHost />
+      </div>
+    )
+  }
+
+  if (route.view === 'faq') {
+    return (
+      <div className="layout">
+        <header className="topbar">
+          <button className="brand" onClick={goHome}>
+            Travel <span>Agent</span>
+          </button>
+          {authed ? (
+            <button className="ghost" onClick={logout}>
+              Выйти
+            </button>
+          ) : null}
+        </header>
+        <main>
+          <Faq onBack={authed ? goHome : undefined} />
         </main>
         <ToastHost />
       </div>
@@ -73,9 +103,14 @@ export default function App() {
         <button className="brand" onClick={goHome}>
           Travel <span>Agent</span>
         </button>
-        <button className="ghost" onClick={logout}>
-          Выйти
-        </button>
+        <div className="topbar-actions">
+          <button className="ghost compact" onClick={goFaq}>
+            FAQ
+          </button>
+          <button className="ghost" onClick={logout}>
+            Выйти
+          </button>
+        </div>
       </header>
       <main>
         {route.view === 'trip' && route.tripId ? (

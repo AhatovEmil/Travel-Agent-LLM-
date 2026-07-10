@@ -3017,3 +3017,115 @@ button:active:not(:disabled) {
   }
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.booking-section.booking-top {
+  margin: 4px 0 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.booking-section.booking-top h2 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.booking-section.booking-top .link-panel {
+  margin-top: 10px;
+}
+
+.auth-faq-link {
+  text-align: center;
+  margin: 4px 0 0;
+}
+
+.auth-faq-link a {
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-faq-link a:hover {
+  color: var(--accent);
+}
+
+.faq-page {
+  max-width: 720px;
+}
+
+.faq-hero {
+  margin-bottom: 20px;
+}
+
+.faq-hero .ghost {
+  margin-top: 12px;
+}
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.faq-q {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 16px 2px;
+  min-height: 52px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.faq-q:hover {
+  color: var(--accent);
+}
+
+.faq-chevron {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.faq-a {
+  margin: 0 0 16px;
+  padding-right: 28px;
+  color: var(--muted);
+  line-height: 1.55;
+  animation: riseIn 0.25s ease;
+}
+
+.live-panel,
+.history-panel,
+.chat-panel {
+  background: transparent;
+  box-shadow: none;
+}
+
+.day-card {
+  box-shadow: none;
+}
+
+.slot-card {
+  box-shadow: none;
+  background: rgba(255, 252, 248, 0.55);
+}
+

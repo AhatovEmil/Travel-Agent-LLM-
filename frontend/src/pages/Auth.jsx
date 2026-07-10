@@ -96,6 +96,9 @@ export default function Auth({ onSuccess }) {
             <button className="primary auth-cta" disabled={busy}>
               {busy ? '…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}
             </button>
+            <p className="auth-faq-link">
+              <a href="#/faq">Частые вопросы</a>
+            </p>
           </div>
         </form>
       </div>

@@ -84,8 +84,8 @@ export default function ShareTrip({ token }) {
       </div>
 
       {data.links && (
-        <section className="booking-section">
-          <h2>Бронирование</h2>
+        <section className="booking-section booking-top">
+          <h2>Жильё и билеты</h2>
           <LinkButtons links={data.links} />
         </section>
       )}
@@ -130,7 +130,6 @@ export default function ShareTrip({ token }) {
                               <span>{slot.place}</span>
                             </div>
                             {slot.body && <Markdown>{slot.body}</Markdown>}
-                            <LinkButtons links={slot.links} compact />
                             {slot.transfer && (
                               <p className="muted small">
                                 <FeasibilityBadge value={slot.transfer.feasibility} />

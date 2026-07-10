@@ -431,8 +431,23 @@ export default function Trip({ tripId, onBack }) {
         )}
       </div>
       <p className="muted notice">
-        Черновик от ИИ: адреса, часы работы и цены ориентировочные — проверяйте перед поездкой.
+        Черновик от ИИ — адреса и цены ориентировочные.
       </p>
+
+      {idle && extras?.links && (
+        <section className="booking-section booking-top">
+          <div className="section-title">
+            <h2>Жильё и билеты</h2>
+            <span className="muted small">
+              {extras.destination}
+              {extras.links?.checkin
+                ? ` · ${extras.links.checkin} → ${extras.links.checkout}`
+                : ''}
+            </span>
+          </div>
+          <LinkButtons links={extras.links} />
+        </section>
+      )}
 
       {idle && itinerary && (
         <TripModeBar mode={tripMode} onChange={setTripMode} phaseHint={modeHint} />
@@ -558,7 +573,7 @@ export default function Trip({ tripId, onBack }) {
         </section>
       )}
 
-      {idle && (
+      {idle && trip.status !== 'completed' && (
         <div className="phases">
           {PHASES.map(([key, label]) => {
             const isDone = donePhases.has(key)
@@ -569,24 +584,6 @@ export default function Trip({ tripId, onBack }) {
             )
           })}
         </div>
-      )}
-
-      {mode === 'plan' && extras?.links && (
-        <section className="booking-section">
-          <div className="section-title">
-            <h2>Бронирование</h2>
-            <span className="muted small">
-              {extras.destination}
-              {extras.links?.checkin
-                ? ` · ${extras.links.checkin} → ${extras.links.checkout}`
-                : ''}
-            </span>
-          </div>
-          <p className="muted small" style={{ marginTop: 0 }}>
-            Ссылки открывают поиск по городу и датам поездки (не главную сайта).
-          </p>
-          <LinkButtons links={extras.links} />
-        </section>
       )}
 
       {mode === 'onsite' && itinerary && idle && (
@@ -800,7 +797,6 @@ export default function Trip({ tripId, onBack }) {
                                 <span className="slot-place">{slot.place}</span>
                               </div>
                               {slot.body && <Markdown>{slot.body}</Markdown>}
-                              <LinkButtons links={slot.links} compact />
                               {slot.transfer && (
                                 <p className="muted small transfer-line">
                                   → {slot.transfer.to}

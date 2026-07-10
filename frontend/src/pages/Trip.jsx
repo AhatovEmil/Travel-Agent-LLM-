@@ -6,11 +6,28 @@ import TripMap from '../TripMap.jsx'
 import { api, downloadTripFile } from '../api.js'
 
 const PHASES = [
-  ['brief', 'ТЗ поездки'],
-  ['itinerary', 'План по дням'],
-  ['budget', 'Бюджет'],
-  ['checklist', 'Чеклист'],
+  ['brief', 'ТЗ поездки', 'Собираю цели, ритм и ограничения'],
+  ['itinerary', 'План по дням', 'Раскладываю маршрут по слотам'],
+  ['budget', 'Бюджет', 'Считаю ориентиры по тратам'],
+  ['checklist', 'Чеклист', 'Список вещей и дел перед выездом'],
 ]
+
+const GEN_TIPS = [
+  'Пока ждёте — можно уже прикинуть, какие дни хотите более спокойными.',
+  'Цены и адреса в плане ориентировочные: перед бронью сверьте на месте.',
+  'После генерации можно переписать план одной фразой: «больше еды, меньше музеев».',
+  'Ссылку для друзей удобно кинуть, когда план уже готов — они проголосуют за слоты.',
+]
+
+function coverFor(id) {
+  const covers = [
+    '/images/dest-sea.jpg',
+    '/images/dest-city.jpg',
+    '/images/dest-nature.jpg',
+    '/images/dash-horizon.jpg',
+  ]
+  return covers[Math.abs(Number(id) || 0) % covers.length]
+}
 
 export default function Trip({ tripId, onBack }) {
   const [trip, setTrip] = useState(null)
@@ -96,6 +113,17 @@ export default function Trip({ tripId, onBack }) {
   const otherArtifacts = artifacts.filter((a) => a.phase !== 'itinerary')
   const days = extras?.days?.length ? extras.days : null
   const idle = trip.status !== 'running'
+  const phaseIndex = Math.max(
+    0,
+    PHASES.findIndex(([key]) => key === (trip.current_phase || 'brief')),
+  )
+  const progressPct = Math.round(
+    ((donePhases.size + (trip.status === 'running' ? 0.35 : trip.status === 'completed' ? 0 : 0)) /
+      PHASES.length) *
+      100,
+  )
+  const tip = GEN_TIPS[tripId % GEN_TIPS.length]
+  const cover = coverFor(tripId)
 
   const voteCounts = (slotKey) => {
     const list = votes.filter((v) => v.slot_key === slotKey)
@@ -226,9 +254,20 @@ export default function Trip({ tripId, onBack }) {
       <button className="ghost" onClick={onBack}>
         ← Все поездки
       </button>
-      <div className="page-hero" style={{ marginTop: 16 }}>
-        <div className="row">
+
+      <div className="trip-cover">
+        <img src={cover} alt="" />
+        <div className="trip-cover-veil" />
+        <div className="trip-cover-copy">
+          <p className="hero-kicker">Поездка</p>
           <h1>{trip.name}</h1>
+          {trip.start_date && <p className="trip-cover-meta">Старт: {trip.start_date}</p>}
+        </div>
+      </div>
+
+      <div className="page-hero trip-hero">
+        <div className="row">
+          <p className="trip-brief">{trip.brief}</p>
           <div className="row gap wrap">
             {trip.status === 'completed' && (
               <>
@@ -250,8 +289,6 @@ export default function Trip({ tripId, onBack }) {
             )}
           </div>
         </div>
-        <p>{trip.brief}</p>
-        {trip.start_date && <p className="muted small">Старт: {trip.start_date}</p>}
         {shareMsg && <p className="muted small">{shareMsg}</p>}
         {shareUrl && (
           <div className="share-box">
@@ -282,17 +319,73 @@ export default function Trip({ tripId, onBack }) {
       {downloadError && <div className="error">{downloadError}</div>}
       {actionError && <div className="error">{actionError}</div>}
 
-      <div className="phases">
-        {PHASES.map(([key, label]) => {
-          const isDone = donePhases.has(key)
-          const isActive = trip.status === 'running' && trip.current_phase === key
-          return (
-            <div key={key} className={`phase ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}`}>
-              {isDone ? '✓' : isActive ? '⟳' : '○'} {label}
+      {(trip.status === 'running' || (!itinerary && trip.status !== 'failed')) && (
+        <section className="gen-panel">
+          <div className="gen-panel-top">
+            <div>
+              <h2>{trip.status === 'running' ? 'Собираю поездку' : 'Готовим документы'}</h2>
+              <p className="muted">
+                {PHASES[phaseIndex]?.[2] || 'Агент проходит фазы плана'}
+              </p>
             </div>
-          )
-        })}
-      </div>
+            <div className="gen-pct">{Math.min(progressPct, 95)}%</div>
+          </div>
+          <div className="gen-bar" aria-hidden="true">
+            <div
+              className="gen-bar-fill"
+              style={{
+                width: `${trip.status === 'completed' ? 100 : Math.min(progressPct, 95)}%`,
+              }}
+            />
+          </div>
+          <div className="gen-phases">
+            {PHASES.map(([key, label, hint], i) => {
+              const isDone = donePhases.has(key)
+              const isActive = trip.status === 'running' && trip.current_phase === key
+              return (
+                <div
+                  key={key}
+                  className={`gen-phase ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}`}
+                >
+                  <div className="gen-phase-mark">
+                    {isDone ? '✓' : isActive ? '⟳' : String(i + 1)}
+                  </div>
+                  <div>
+                    <strong>{label}</strong>
+                    <p>{hint}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <p className="gen-tip">{tip}</p>
+          {trip.status === 'running' && (
+            <div className="gen-skeletons" aria-hidden="true">
+              <div className="skel skel-wide" />
+              <div className="skel" />
+              <div className="skel skel-mid" />
+              <div className="skel-row">
+                <div className="skel skel-card" />
+                <div className="skel skel-card" />
+                <div className="skel skel-card" />
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {idle && (
+        <div className="phases">
+          {PHASES.map(([key, label]) => {
+            const isDone = donePhases.has(key)
+            return (
+              <div key={key} className={`phase ${isDone ? 'done' : ''}`}>
+                {isDone ? '✓' : '○'} {label}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {extras?.links && (
         <section className="booking-section">
@@ -409,7 +502,19 @@ export default function Trip({ tripId, onBack }) {
             </button>
           )}
         </div>
-        {!itinerary && <p className="muted">Агент ещё готовит itinerary…</p>}
+        {!itinerary && (
+          <div className="await-card">
+            <img src="/images/dash-horizon.jpg" alt="" />
+            <div>
+              <strong>План по дням ещё собирается</strong>
+              <p className="muted">
+                {trip.status === 'running'
+                  ? 'Скоро появятся слоты, карта и ссылки на бронирование.'
+                  : 'Запустите генерацию или перегенерируйте itinerary.'}
+              </p>
+            </div>
+          </div>
+        )}
         {itinerary && days && (
           <div className="day-cards">
             {days.map((day, idx) => (
@@ -519,7 +624,15 @@ export default function Trip({ tripId, onBack }) {
 
       <section>
         <h2>Остальные документы</h2>
-        {otherArtifacts.length === 0 && <p className="muted">Пока пусто…</p>}
+        {otherArtifacts.length === 0 && (
+          <div className="await-card compact">
+            <img src="/images/empty-bag.jpg" alt="" />
+            <div>
+              <strong>Документы появятся по ходу</strong>
+              <p className="muted">ТЗ, бюджет и чеклист откроются здесь, как только фазы завершатся.</p>
+            </div>
+          </div>
+        )}
         {otherArtifacts.map((a) => (
           <div key={a.id} className="card slim">
             <button

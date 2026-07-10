@@ -49,6 +49,34 @@ def build_trip_extras(trip: Trip, geocode_limit: int = 10) -> dict:
     itinerary = arts.get("itinerary", "")
     days = parse_itinerary_days(itinerary, start_date=start)
     link_kwargs = {"checkin": start, "nights": days_count}
+    trip_links = destination_links(destination, **link_kwargs)
+
+    # Быстрый ответ: структура дней без геокодинга/погоды (UI сразу по блокам)
+    if geocode_limit <= 0:
+        for day in days:
+            day["weather"] = None
+            day["links"] = trip_links
+            slots = day.get("slots") or []
+            day["slots"] = [
+                {
+                    **slot,
+                    "links": place_links(slot["place"], destination, **link_kwargs),
+                    "lat": None,
+                    "lon": None,
+                }
+                for slot in slots
+            ]
+        return {
+            "destination": destination,
+            "days_count": days_count,
+            "start_date": start.isoformat() if start else None,
+            "days": days,
+            "center": None,
+            "places": [],
+            "weather": [],
+            "links": trip_links,
+            "fast": True,
+        }
 
     place_cache: dict[str, dict | None] = {}
 
@@ -142,6 +170,7 @@ def build_trip_extras(trip: Trip, geocode_limit: int = 10) -> dict:
         "places": places,
         "weather": weather,
         "links": destination_links(destination, **link_kwargs),
+        "fast": False,
     }
 
 

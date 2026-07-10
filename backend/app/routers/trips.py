@@ -326,11 +326,12 @@ def rollback_itinerary_version(
 @router.get("/{trip_id}/extras")
 def trip_extras(
     trip_id: int,
+    fast: bool = Query(default=False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     trip = _get_owned_trip(trip_id, current_user, db)
-    return build_trip_extras(trip)
+    return build_trip_extras(trip, geocode_limit=0 if fast else 10)
 
 
 @router.get("/{trip_id}/live")

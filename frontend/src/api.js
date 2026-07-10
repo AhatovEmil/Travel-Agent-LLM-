@@ -63,7 +63,8 @@ export const api = {
   getItineraryVersions: (id) => request(`/api/trips/${id}/itinerary/versions`),
   rollbackItinerary: (id, versionId) =>
     request(`/api/trips/${id}/itinerary/versions/${versionId}/rollback`, { method: 'POST' }),
-  getExtras: (id) => request(`/api/trips/${id}/extras`),
+  getExtras: (id, fast = false) =>
+    request(`/api/trips/${id}/extras${fast ? '?fast=1' : ''}`),
   getLive: (id, lat, lon) => {
     const q = new URLSearchParams()
     if (lat != null) q.set('lat', String(lat))

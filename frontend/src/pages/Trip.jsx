@@ -138,8 +138,12 @@ export default function Trip({ tripId, onBack }) {
         const hasItinerary = arts.some((a) => a.phase === 'itinerary')
         if (t.status !== 'running' || hasItinerary) {
           try {
+            // Сначала быстрая структура дней (без геокодинга), потом полные extras
+            const fastEx = await api.getExtras(tripId, true)
+            if (!cancelled) setExtras(fastEx)
+
             const [ex, v, vers] = await Promise.all([
-              api.getExtras(tripId),
+              api.getExtras(tripId, false),
               t.status !== 'running' ? api.getVotes(tripId) : Promise.resolve([]),
               t.status !== 'running' ? api.getItineraryVersions(tripId).catch(() => []) : Promise.resolve(null),
             ])
@@ -736,10 +740,17 @@ export default function Trip({ tripId, onBack }) {
           </div>
         )}
         {itinerary && !days && (
-          <div className="live-preview">
-            <p className="muted small">Черновик плана — структура появится после разбора слотов.</p>
-            <Markdown>{itinerary.content}</Markdown>
+          <div className="await-card compact">
+            <div>
+              <strong>Раскладываю план по дням…</strong>
+              <p className="muted">Секунду — появятся слоты, без стены текста.</p>
+            </div>
           </div>
+        )}
+        {itinerary && days && extras?.fast && (
+          <p className="muted small" style={{ marginBottom: 10 }}>
+            Карта и погода подгрузятся чуть позже…
+          </p>
         )}
         {itinerary && days && (
           <div className="day-cards">

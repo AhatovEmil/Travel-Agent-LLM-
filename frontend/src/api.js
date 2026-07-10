@@ -60,6 +60,9 @@ export const api = {
     }),
   getMessages: (id) => request(`/api/trips/${id}/messages`),
   getArtifacts: (id) => request(`/api/trips/${id}/artifacts`),
+  getItineraryVersions: (id) => request(`/api/trips/${id}/itinerary/versions`),
+  rollbackItinerary: (id, versionId) =>
+    request(`/api/trips/${id}/itinerary/versions/${versionId}/rollback`, { method: 'POST' }),
   getExtras: (id) => request(`/api/trips/${id}/extras`),
   getLive: (id, lat, lon) => {
     const q = new URLSearchParams()

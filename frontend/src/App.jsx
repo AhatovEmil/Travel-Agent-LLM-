@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { clearToken, getToken } from './api.js'
+import ToastHost from './Toast.jsx'
 import Auth from './pages/Auth.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import ShareTrip from './pages/ShareTrip.jsx'
@@ -59,6 +60,7 @@ export default function App() {
         <main>
           <ShareTrip token={route.token} />
         </main>
+        <ToastHost />
       </div>
     )
   }
@@ -82,6 +84,7 @@ export default function App() {
           <Dashboard onOpen={openTrip} />
         )}
       </main>
+      <ToastHost />
     </div>
   )
 }

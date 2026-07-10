@@ -57,6 +57,17 @@ class ArtifactOut(BaseModel):
     created_at: datetime
 
 
+class ArtifactVersionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    phase: str
+    content: str
+    source: str
+    source_meta: str
+    created_at: datetime
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=3, max_length=2000)
 

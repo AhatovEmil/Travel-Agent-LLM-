@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
+import { coverForText } from '../covers.js'
+import ExamplePreview, { hasSeenExample, markExampleSeen } from '../ExamplePreview.jsx'
 
 const STATUS_LABELS = {
   draft: ['Черновик', 'badge'],
@@ -19,6 +21,30 @@ const INTERESTS = [
   'Без экстрима',
 ]
 
+const TEMPLATES = [
+  {
+    id: 'romance',
+    label: 'Романтика',
+    hint: 'ужины, виды, без спешки',
+    interests: ['Еда и кафе', 'Музеи / культура', 'Море / пляж'],
+    notes: 'Романтичная поездка вдвоём: красивые виды, ужины, спокойный темп.',
+  },
+  {
+    id: 'kids',
+    label: 'С детьми',
+    hint: 'парки, пляж, без экстрима',
+    interests: ['С детьми', 'Море / пляж', 'Природа / прогулки', 'Без экстрима'],
+    notes: 'С детьми: короткие переезды, парки, пляж, ранние ужины.',
+  },
+  {
+    id: 'gastro',
+    label: 'Гастро',
+    hint: 'рынки, кафе, локальная кухня',
+    interests: ['Еда и кафе', 'Шоппинг', 'Музеи / культура'],
+    notes: 'Гастрофокус: рынки, локальная кухня, кофейни; меньше музеев.',
+  },
+]
+
 const STEPS = ['Куда', 'Срок', 'Бюджет', 'Интересы']
 
 const MOODS = [
@@ -26,17 +52,6 @@ const MOODS = [
   { label: 'Город', place: 'Париж', img: '/images/dest-city.jpg' },
   { label: 'Природа', place: 'Алтай', img: '/images/dest-nature.jpg' },
 ]
-
-const COVER_IMAGES = [
-  '/images/dest-sea.jpg',
-  '/images/dest-city.jpg',
-  '/images/dest-nature.jpg',
-  '/images/dash-horizon.jpg',
-]
-
-function coverFor(id) {
-  return COVER_IMAGES[Math.abs(Number(id) || 0) % COVER_IMAGES.length]
-}
 
 function buildBrief({ destination, days, budget, interests, notes, travelers, startDate }) {
   const parts = [
@@ -67,10 +82,32 @@ export default function Dashboard({ onOpen }) {
   const [travelers, setTravelers] = useState('2 взрослых')
   const [interests, setInterests] = useState([])
   const [notes, setNotes] = useState('')
+  const [activeTemplate, setActiveTemplate] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [exampleOpen, setExampleOpen] = useState(false)
+  const [showOnboard, setShowOnboard] = useState(() => !hasSeenExample())
 
   const refresh = () => api.listTrips().then(setTrips).catch((e) => setError(e.message))
+
+  const applyTemplate = (tpl) => {
+    setActiveTemplate(tpl.id)
+    setInterests(tpl.interests)
+    setNotes(tpl.notes)
+    setStep(3)
+    setError('')
+  }
+
+  const openExample = () => {
+    setExampleOpen(true)
+    markExampleSeen()
+    setShowOnboard(false)
+  }
+
+  const dismissOnboard = () => {
+    markExampleSeen()
+    setShowOnboard(false)
+  }
 
   useEffect(() => {
     refresh()
@@ -118,6 +155,7 @@ export default function Dashboard({ onOpen }) {
       setTravelers('2 взрослых')
       setInterests([])
       setNotes('')
+      setActiveTemplate(null)
       setStep(0)
       await refresh()
       onOpen(trip.id)
@@ -170,6 +208,34 @@ export default function Dashboard({ onOpen }) {
           </button>
         ))}
       </div>
+
+      {showOnboard && (
+        <aside className="onboard-card">
+          <img src="/images/dest-sea.jpg" alt="" />
+          <div className="onboard-copy">
+            <strong>Как выглядит готовый план?</strong>
+            <p className="muted">
+              20 секунд: дни, слоты, бюджет и чеклист на примере Батуми — без регистрации поездки.
+            </p>
+            <div className="row gap wrap">
+              <button type="button" className="primary compact" onClick={openExample}>
+                Посмотреть пример
+              </button>
+              <button type="button" className="ghost compact" onClick={dismissOnboard}>
+                Понятно
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {!showOnboard && (
+        <p className="example-link-row">
+          <button type="button" className="linkish" onClick={openExample}>
+            Посмотреть пример готового плана
+          </button>
+        </p>
+      )}
 
       <section className="card wizard-card">
         <div className="wizard-steps">
@@ -262,6 +328,22 @@ export default function Dashboard({ onOpen }) {
           {step === 3 && (
             <>
               <div>
+                <label className="field-label">Шаблоны одним тапом</label>
+                <div className="template-row">
+                  {TEMPLATES.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      className={`template-card ${activeTemplate === tpl.id ? 'selected' : ''}`}
+                      onClick={() => applyTemplate(tpl)}
+                    >
+                      <strong>{tpl.label}</strong>
+                      <span>{tpl.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <label className="field-label">Что важно в поездке</label>
                 <div className="chip-row">
                   {INTERESTS.map((item) => (
@@ -269,7 +351,10 @@ export default function Dashboard({ onOpen }) {
                       key={item}
                       type="button"
                       className={`chip ${interests.includes(item) ? 'selected' : ''}`}
-                      onClick={() => toggleInterest(item)}
+                      onClick={() => {
+                        setActiveTemplate(null)
+                        toggleInterest(item)
+                      }}
                     >
                       {item}
                     </button>
@@ -281,7 +366,10 @@ export default function Dashboard({ onOpen }) {
                 <textarea
                   placeholder="Без аренды авто, хотим местную кухню…"
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => {
+                    setActiveTemplate(null)
+                    setNotes(e.target.value)
+                  }}
                   rows={3}
                 />
               </div>
@@ -334,7 +422,7 @@ export default function Dashboard({ onOpen }) {
               style={{ animationDelay: `${Math.min(index, 8) * 0.05}s` }}
             >
               <div className="project-cover">
-                <img src={coverFor(t.id)} alt="" />
+                <img src={coverForText(t.name, t.brief)} alt="" />
               </div>
               <div className="project-body">
                 <div className="row">
@@ -357,6 +445,15 @@ export default function Dashboard({ onOpen }) {
           )
         })}
       </div>
+
+      <ExamplePreview
+        open={exampleOpen}
+        onClose={() => {
+          setExampleOpen(false)
+          markExampleSeen()
+          setShowOnboard(false)
+        }}
+      />
     </div>
   )
 }

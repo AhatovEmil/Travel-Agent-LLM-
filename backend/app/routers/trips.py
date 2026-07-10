@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..deps import get_current_user, get_db
-from ..models import ChatMessage, Trip, User
+from ..models import ArtifactVersion, ChatMessage, Trip, User
 from ..schemas import (
     AskResponse,
     ArtifactOut,
+    ArtifactVersionOut,
     ChatMessageOut,
     ChatRequest,
     LiveAdjustRequest,
@@ -24,6 +25,7 @@ from ..services.export import build_trip_markdown, build_trip_pdf
 from ..services.extras import build_live_status, build_trip_extras
 from ..services.pipeline import (
     PHASES,
+    rollback_itinerary,
     run_chat_revise,
     run_live_adjust,
     run_pipeline,
@@ -252,6 +254,39 @@ def list_artifacts(
 ):
     trip = _get_owned_trip(trip_id, current_user, db)
     return trip.artifacts
+
+
+@router.get("/{trip_id}/itinerary/versions", response_model=list[ArtifactVersionOut])
+def list_itinerary_versions(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    rows = db.scalars(
+        select(ArtifactVersion)
+        .where(ArtifactVersion.trip_id == trip.id, ArtifactVersion.phase == "itinerary")
+        .order_by(ArtifactVersion.id.desc())
+    ).all()
+    return list(rows)
+
+
+@router.post(
+    "/{trip_id}/itinerary/versions/{version_id}/rollback",
+    response_model=TripOut,
+)
+def rollback_itinerary_version(
+    trip_id: int,
+    version_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    try:
+        return rollback_itinerary(db, trip, version_id)
+    except ValueError as exc:
+        code = status.HTTP_409_CONFLICT if "генерации" in str(exc) else status.HTTP_404_NOT_FOUND
+        raise HTTPException(code, str(exc)) from exc
 
 
 @router.get("/{trip_id}/extras")

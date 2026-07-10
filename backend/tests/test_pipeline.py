@@ -197,6 +197,21 @@ def test_chat_revises_itinerary(client, auth_headers, monkeypatch):
     arts = {a["phase"]: a["content"] for a in client.get(f"/api/trips/{trip_id}/artifacts", headers=auth_headers).json()}
     assert "пляж" in arts["itinerary"].lower()
 
+    versions = client.get(f"/api/trips/{trip_id}/itinerary/versions", headers=auth_headers).json()
+    assert len(versions) >= 1
+    assert versions[0]["source"] == "chat_revise"
+    assert "музей" in versions[0]["source_meta"].lower() or "пляж" in versions[0]["source_meta"].lower()
+    old_content = versions[0]["content"]
+    assert "музей" in old_content.lower() or "бульвар" in old_content.lower()
+
+    rolled = client.post(
+        f"/api/trips/{trip_id}/itinerary/versions/{versions[0]['id']}/rollback",
+        headers=auth_headers,
+    )
+    assert rolled.status_code == 200
+    arts2 = {a["phase"]: a["content"] for a in client.get(f"/api/trips/{trip_id}/artifacts", headers=auth_headers).json()}
+    assert arts2["itinerary"] == old_content
+
 
 def test_extras_parses_days(client, auth_headers, monkeypatch):
     _mock_engine(monkeypatch)

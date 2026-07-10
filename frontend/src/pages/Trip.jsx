@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AskChat from '../AskChat.jsx'
+import { coverForText } from '../covers.js'
 import LinkButtons, { FeasibilityBadge } from '../LinkButtons.jsx'
 import Markdown from '../Markdown.jsx'
+import { announceTripReady, ensureNotifyPermission } from '../notify.js'
+import { toast } from '../Toast.jsx'
 import TripMap from '../TripMap.jsx'
 import { api, downloadTripFile } from '../api.js'
 
@@ -19,14 +22,33 @@ const GEN_TIPS = [
   'Ссылку для друзей удобно кинуть, когда план уже готов — они проголосуют за слоты.',
 ]
 
-function coverFor(id) {
-  const covers = [
-    '/images/dest-sea.jpg',
-    '/images/dest-city.jpg',
-    '/images/dest-nature.jpg',
-    '/images/dash-horizon.jpg',
-  ]
-  return covers[Math.abs(Number(id) || 0) % covers.length]
+const PHASE_TITLES = {
+  brief: 'ТЗ поездки',
+  itinerary: 'План по дням',
+  budget: 'Бюджет',
+  checklist: 'Чеклист',
+}
+
+const VERSION_SOURCE = {
+  pipeline: 'Полная генерация',
+  phase_rerun: 'Перегенерация фазы',
+  chat_revise: 'Правка чатом',
+  live_adjust: 'Я на месте',
+  rebuild_votes: 'По голосам',
+  rollback: 'Откат',
+}
+
+function formatVersionTime(iso) {
+  try {
+    return new Date(iso).toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return iso
+  }
 }
 
 export default function Trip({ tripId, onBack }) {
@@ -34,6 +56,8 @@ export default function Trip({ tripId, onBack }) {
   const [artifacts, setArtifacts] = useState([])
   const [extras, setExtras] = useState(null)
   const [votes, setVotes] = useState([])
+  const [versions, setVersions] = useState([])
+  const [openVersion, setOpenVersion] = useState(null)
   const [openArtifact, setOpenArtifact] = useState(null)
   const [openDay, setOpenDay] = useState(0)
   const [error, setError] = useState('')
@@ -46,6 +70,11 @@ export default function Trip({ tripId, onBack }) {
   const [liveCoords, setLiveCoords] = useState({ lat: null, lon: null })
   const [shareMsg, setShareMsg] = useState('')
   const [shareUrl, setShareUrl] = useState('')
+  const prevStatus = useRef(null)
+
+  useEffect(() => {
+    ensureNotifyPermission()
+  }, [])
 
   useEffect(() => {
     let timer
@@ -55,30 +84,56 @@ export default function Trip({ tripId, onBack }) {
       try {
         const t = await api.getTrip(tripId)
         if (cancelled) return
+
+        const wasRunning = prevStatus.current === 'running'
+        if (wasRunning && t.status === 'completed') {
+          announceTripReady(t.name, { toast })
+        } else if (wasRunning && t.status === 'failed') {
+          toast(t.error || 'Генерация не удалась', 'err')
+        }
+        prevStatus.current = t.status
         setTrip(t)
+
         const arts = await api.getArtifacts(tripId)
         if (cancelled) return
         setArtifacts(arts)
-        if (t.status !== 'running') {
+
+        const hasItinerary = arts.some((a) => a.phase === 'itinerary')
+        if (t.status !== 'running' || hasItinerary) {
           try {
-            const [ex, v] = await Promise.all([api.getExtras(tripId), api.getVotes(tripId)])
+            const [ex, v, vers] = await Promise.all([
+              api.getExtras(tripId),
+              t.status !== 'running' ? api.getVotes(tripId) : Promise.resolve([]),
+              t.status !== 'running' ? api.getItineraryVersions(tripId).catch(() => []) : Promise.resolve(null),
+            ])
             if (!cancelled) {
               setExtras(ex)
-              setVotes(v)
+              if (t.status !== 'running') {
+                setVotes(v)
+                if (vers) setVersions(vers)
+              }
             }
           } catch {
-            if (!cancelled) setExtras(null)
+            if (!cancelled && t.status !== 'running') setExtras(null)
           }
         }
+
+        if (arts.length) {
+          setOpenArtifact((prev) => {
+            const newest = arts[arts.length - 1]
+            if (prev == null) return newest.id
+            const stillThere = arts.some((a) => a.id === prev)
+            if (!stillThere) return newest.id
+            if (t.status === 'running') return newest.id
+            return prev
+          })
+        }
+
         if (t.status === 'running') {
           timer = setTimeout(load, 2000)
         } else {
           setReviseBusy(false)
           setLiveBusy(false)
-          setOpenArtifact((prev) => {
-            if (prev != null) return prev
-            return arts[0]?.id ?? null
-          })
           if (liveCoords.lat != null || live) {
             api
               .getLive(tripId, liveCoords.lat, liveCoords.lon)
@@ -123,7 +178,8 @@ export default function Trip({ tripId, onBack }) {
       100,
   )
   const tip = GEN_TIPS[tripId % GEN_TIPS.length]
-  const cover = coverFor(tripId)
+  const cover = coverForText(trip.name, trip.brief)
+  const latestLive = artifacts[artifacts.length - 1]
 
   const voteCounts = (slotKey) => {
     const list = votes.filter((v) => v.slot_key === slotKey)
@@ -249,6 +305,26 @@ export default function Trip({ tripId, onBack }) {
     }
   }
 
+  const rollbackVersion = async (versionId) => {
+    if (!window.confirm('Вернуть этот вариант плана? Текущий сохранится в истории.')) return
+    setActionError('')
+    try {
+      const t = await api.rollbackItinerary(tripId, versionId)
+      setTrip(t)
+      const [arts, ex, vers] = await Promise.all([
+        api.getArtifacts(tripId),
+        api.getExtras(tripId),
+        api.getItineraryVersions(tripId),
+      ])
+      setArtifacts(arts)
+      setExtras(ex)
+      setVersions(vers)
+      toast('План откатили к выбранной версии')
+    } catch (err) {
+      setActionError(err.message)
+    }
+  }
+
   return (
     <div className="container">
       <button className="ghost" onClick={onBack}>
@@ -359,7 +435,7 @@ export default function Trip({ tripId, onBack }) {
             })}
           </div>
           <p className="gen-tip">{tip}</p>
-          {trip.status === 'running' && (
+          {trip.status === 'running' && artifacts.length === 0 && (
             <div className="gen-skeletons" aria-hidden="true">
               <div className="skel skel-wide" />
               <div className="skel" />
@@ -369,6 +445,36 @@ export default function Trip({ tripId, onBack }) {
                 <div className="skel skel-card" />
                 <div className="skel skel-card" />
               </div>
+            </div>
+          )}
+          {trip.status === 'running' && artifacts.length > 0 && (
+            <div className="live-feed">
+              <div className="section-title">
+                <h3>Уже готово</h3>
+                <span className="muted small">
+                  {artifacts.length} из {PHASES.length}
+                  {latestLive ? ` · сейчас: ${PHASE_TITLES[latestLive.phase] || latestLive.phase}` : ''}
+                </span>
+              </div>
+              {artifacts.map((a) => (
+                <div key={a.id} className="card slim live-feed-card">
+                  <button
+                    type="button"
+                    className="row expander"
+                    onClick={() => setOpenArtifact(openArtifact === a.id ? null : a.id)}
+                  >
+                    <strong>
+                      ✓ {PHASE_TITLES[a.phase] || a.title}
+                    </strong>
+                    <span>{openArtifact === a.id ? '▾' : '▸'}</span>
+                  </button>
+                  {openArtifact === a.id && (
+                    <div className="live-feed-body">
+                      <Markdown>{a.content}</Markdown>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -504,15 +610,21 @@ export default function Trip({ tripId, onBack }) {
         </div>
         {!itinerary && (
           <div className="await-card">
-            <img src="/images/dash-horizon.jpg" alt="" />
+            <img src={cover} alt="" />
             <div>
               <strong>План по дням ещё собирается</strong>
               <p className="muted">
                 {trip.status === 'running'
-                  ? 'Скоро появятся слоты, карта и ссылки на бронирование.'
+                  ? 'Скоро появятся слоты, карта и ссылки на бронирование. Готовые фазы уже выше.'
                   : 'Запустите генерацию или перегенерируйте itinerary.'}
               </p>
             </div>
+          </div>
+        )}
+        {itinerary && !days && (
+          <div className="live-preview">
+            <p className="muted small">Черновик плана — структура появится после разбора слотов.</p>
+            <Markdown>{itinerary.content}</Markdown>
           </div>
         )}
         {itinerary && days && (
@@ -580,7 +692,6 @@ export default function Trip({ tripId, onBack }) {
             ))}
           </div>
         )}
-        {itinerary && !days && <Markdown>{itinerary.content}</Markdown>}
       </section>
 
       {votes.length > 0 && idle && (
@@ -622,26 +733,70 @@ export default function Trip({ tripId, onBack }) {
         </section>
       )}
 
-      <section>
-        <h2>Остальные документы</h2>
-        {otherArtifacts.length === 0 && (
-          <div className="await-card compact">
-            <img src="/images/empty-bag.jpg" alt="" />
-            <div>
-              <strong>Документы появятся по ходу</strong>
-              <p className="muted">ТЗ, бюджет и чеклист откроются здесь, как только фазы завершатся.</p>
-            </div>
+      {idle && versions.length > 0 && (
+        <section className="history-panel">
+          <div className="section-title">
+            <h2>История плана</h2>
+            <span className="muted small">{versions.length}</span>
           </div>
-        )}
-        {otherArtifacts.map((a) => (
-          <div key={a.id} className="card slim">
-            <button
-              className="row expander"
-              onClick={() => setOpenArtifact(openArtifact === a.id ? null : a.id)}
-            >
-              <strong>{a.title}</strong>
-              <span className="row gap">
-                {idle && (
+          <p className="muted small">
+            Снимки до правок чатом, live-adjust и пересборок. Можно откатиться.
+          </p>
+          <div className="history-list">
+            {versions.map((v) => (
+              <div key={v.id} className="card slim history-card">
+                <button
+                  type="button"
+                  className="row expander"
+                  onClick={() => setOpenVersion(openVersion === v.id ? null : v.id)}
+                >
+                  <div className="history-meta">
+                    <strong>{VERSION_SOURCE[v.source] || v.source}</strong>
+                    <span className="muted small">
+                      {formatVersionTime(v.created_at)}
+                      {v.source_meta ? ` · ${v.source_meta.slice(0, 80)}` : ''}
+                    </span>
+                  </div>
+                  <span>{openVersion === v.id ? '▾' : '▸'}</span>
+                </button>
+                {openVersion === v.id && (
+                  <div className="history-body">
+                    <Markdown>{v.content}</Markdown>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => rollbackVersion(v.id)}
+                    >
+                      Вернуть этот вариант
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {idle && (
+        <section>
+          <h2>Остальные документы</h2>
+          {otherArtifacts.length === 0 && (
+            <div className="await-card compact">
+              <img src="/images/empty-bag.jpg" alt="" />
+              <div>
+                <strong>Документы появятся по ходу</strong>
+                <p className="muted">ТЗ, бюджет и чеклист откроются здесь, как только фазы завершатся.</p>
+              </div>
+            </div>
+          )}
+          {otherArtifacts.map((a) => (
+            <div key={a.id} className="card slim">
+              <button
+                className="row expander"
+                onClick={() => setOpenArtifact(openArtifact === a.id ? null : a.id)}
+              >
+                <strong>{a.title}</strong>
+                <span className="row gap">
                   <span
                     className="linkish"
                     role="button"
@@ -659,14 +814,14 @@ export default function Trip({ tripId, onBack }) {
                   >
                     ↻
                   </span>
-                )}
-                <span>{openArtifact === a.id ? '▾' : '▸'}</span>
-              </span>
-            </button>
-            {openArtifact === a.id && <Markdown>{a.content}</Markdown>}
-          </div>
-        ))}
-      </section>
+                  <span>{openArtifact === a.id ? '▾' : '▸'}</span>
+                </span>
+              </button>
+              {openArtifact === a.id && <Markdown>{a.content}</Markdown>}
+            </div>
+          ))}
+        </section>
+      )}
 
       <AskChat tripId={tripId} disabled={false} />
     </div>

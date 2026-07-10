@@ -1,44 +1,67 @@
 # Travel Agent
 
-ИИ-агент для планирования поездок: мастер вопросов → план по дням, бюджет и чеклист (DeepSeek).
+ИИ-агент для планирования поездок: мастер вопросов → план по дням, бюджет, чеклист и режим «на месте» (DeepSeek).
 
-**Установка с нуля:** [INSTALL.md](INSTALL.md)
+## Живой сайт
 
-## Быстрый старт
+Всё из этого репозитория уже развёрнуто и работает онлайн:
 
-1. Ключ DeepSeek в `backend/.env` (см. `.env.example`)
-2. **Windows:** двойной клик `start.bat`  
-   **macOS:** два терминала — `uvicorn` на `:8000` и `npm run dev` (подробно в [INSTALL.md](INSTALL.md))
-3. Откройте http://localhost:5173
+**https://ai-travel-assistant.ru**
+
+Там можно зарегистрироваться, собрать поездку, скачать PDF, открыть режимы «План / На месте / Воспоминания», Street Smart и ссылку для друзей.
+
+Open-source код — здесь; продакшен крутится на VPS (Docker + Caddy + HTTPS).
 
 ## Возможности
 
 - Мастер: куда → срок + дата → бюджет → интересы
 - 4 фазы: Brief, Itinerary, Budget, Checklist
 - Слоты по времени, успеваемость пешком, погода от даты старта
-- Deep links: жильё (Booking / Островок / Я.Путешествия / Суточно) и билеты (Aviasales / Я.Авиа / Туту)
+- Deep links: жильё и билеты
 - Режим «Я на месте» + перестройка дня (опоздание / дождь)
-- **ОС поездки**: режимы План / На месте / Воспоминания — утренний брифинг, вечерний чекин, дневник
+- **ОС поездки**: План / На месте / Воспоминания — брифинг, вечерний чекин, дневник
 - Street Smart: фразы, ловушки, вкус, квест дня, arrival
-- Совместная ссылка `#/share/...` с голосами и пересборкой
-- Чат «?» — уточняющие вопросы; PDF / `.md` экспорт
-- Защита от зависших `running`, лимит LLM/час, кэш геокодинга
-- Docker Compose, автотесты, Swagger
+- Совместная ссылка `#/share/...` с голосами
+- Чат «?», экспорт PDF / `.md`
+- Docker Compose, автотесты, лимит LLM, кэш геокодинга
 
-## Docker
+## Секреты — важно
+
+**Не коммитьте `.env` и любые файлы с ключами.**
+
+В Git допускается только шаблон [`.env.example`](.env.example) (без реальных `LLM_API_KEY` / `JWT_SECRET`).  
+Рабочие ключи храните локально в `backend/.env` или корневом `.env` и на сервере — они в [`.gitignore`](.gitignore).
+
+## Локальный запуск
+
+Подробно: [INSTALL.md](INSTALL.md).
+
+Кратко:
+
+1. Скопируйте `.env.example` → `backend/.env` (и при Docker — в корневой `.env`)
+2. Заполните минимум:
+   - `LLM_API_KEY` — ключ [DeepSeek](https://platform.deepseek.com)
+   - `JWT_SECRET` — любая длинная случайная строка
+3. **Windows:** `start.bat`  
+   **Или вручную:** backend `uvicorn` на `:8000`, frontend `npm run dev` на `:5173`
+4. Откройте http://localhost:5173
+
+### Docker (локально / как на проде)
 
 ```bash
-cp .env.example .env   # LLM_API_KEY, JWT_SECRET; на проде — SITE_ADDRESS и CORS_ORIGINS
+cp .env.example .env
+# заполните LLM_API_KEY, JWT_SECRET
+# на своём домене: SITE_ADDRESS и CORS_ORIGINS
 docker compose up --build -d
 ```
 
-- Сайт: http://localhost (Caddy :80 / :443)
-- Health: http://localhost/api/health
-- Прод на VPS: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- Сайт: http://localhost  
+- Health: http://localhost/api/health  
+- Выкладка на VPS: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ## Документация
 
-- [INSTALL.md](INSTALL.md) — установка
+- [INSTALL.md](INSTALL.md) — установка с нуля
 - [docs/API.md](docs/API.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
@@ -49,3 +72,7 @@ docker compose up --build -d
 cd backend
 pytest
 ```
+
+## Лицензия
+
+[MIT](LICENSE) — можно использовать, менять и развивать форки. Прод-ключи и данные пользователей в репозиторий не входят.

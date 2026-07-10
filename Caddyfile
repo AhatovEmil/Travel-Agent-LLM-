@@ -1,0 +1,20 @@
+# Travel Agent — reverse proxy + auto HTTPS
+# SITE_ADDRESS=localhost          → локально (HTTP/локальный HTTPS)
+# SITE_ADDRESS=travel.example.com → прод с Let's Encrypt
+
+{$SITE_ADDRESS:localhost} {
+	encode gzip
+
+	handle /api* {
+		reverse_proxy backend:8000 {
+			transport http {
+				read_timeout 300s
+				write_timeout 300s
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy frontend:80
+	}
+}

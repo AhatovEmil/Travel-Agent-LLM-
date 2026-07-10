@@ -211,10 +211,12 @@ npm run dev
 
 ### Docker (Windows и Mac)
 
-Скопируйте `.env.example` в `.env`, впишите ключ, затем:
+Скопируйте `.env.example` в `.env` в корне проекта, впишите `LLM_API_KEY` и при желании смените `JWT_SECRET`, затем:
 
 ```bash
 docker compose up --build
 ```
 
-Сайт будет на http://localhost:3000, API docs — http://localhost:8000/docs.
+Сайт: **http://localhost** (Caddy на порту 80). Проверка API: http://localhost/api/health.
+
+Для выкладки на VPS с доменом и HTTPS — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).

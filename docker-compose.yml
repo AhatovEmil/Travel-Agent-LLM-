@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: travel
-      POSTGRES_PASSWORD: travel_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-travel_password}
       POSTGRES_DB: travel
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -12,29 +12,62 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+psycopg2://travel:travel_password@db:5432/travel
+      DATABASE_URL: postgresql+psycopg2://travel:${POSTGRES_PASSWORD:-travel_password}@db:5432/travel
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com/v1}
       LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
       LLM_MODEL_FALLBACKS: ${LLM_MODEL_FALLBACKS:-deepseek-reasoner}
-      CORS_ORIGINS: "*"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,https://localhost}
+      LLM_RATE_LIMIT_PER_HOUR: ${LLM_RATE_LIMIT_PER_HOUR:-20}
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    # Порты наружу не открываем — только через Caddy
 
   frontend:
     build: ./frontend
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
     ports:
-      - "3000:80"
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:

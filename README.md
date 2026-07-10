@@ -28,12 +28,13 @@
 ## Docker
 
 ```bash
-cp .env.example .env   # заполните LLM_API_KEY
-docker compose up --build
+cp .env.example .env   # LLM_API_KEY, JWT_SECRET; на проде — SITE_ADDRESS и CORS_ORIGINS
+docker compose up --build -d
 ```
 
-- Frontend: http://localhost:3000
-- API: http://localhost:8000/docs
+- Сайт: http://localhost (Caddy :80 / :443)
+- Health: http://localhost/api/health
+- Прод на VPS: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ## Документация
 

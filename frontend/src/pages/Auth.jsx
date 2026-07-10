@@ -33,16 +33,19 @@ export default function Auth({ onSuccess }) {
 
       <div className="auth-stage">
         <header className="auth-hero">
+          <p className="auth-eyebrow">Планировщик поездок</p>
           <h1 className="auth-brand">
             Travel <span>Agent</span>
           </h1>
-          <p className="auth-tagline">Планы, которые хочется увезти с собой</p>
+          <p className="auth-tagline">Маршрут, бюджет и чеклист — за несколько вопросов</p>
         </header>
 
         <form className="auth-panel" onSubmit={submit}>
-          <div className="tabs">
+          <div className="tabs" role="tablist">
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'login'}
               className={mode === 'login' ? 'tab active' : 'tab'}
               onClick={() => setMode('login')}
             >
@@ -50,6 +53,8 @@ export default function Auth({ onSuccess }) {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'register'}
               className={mode === 'register' ? 'tab active' : 'tab'}
               onClick={() => setMode('register')}
             >
@@ -58,9 +63,14 @@ export default function Auth({ onSuccess }) {
           </div>
           <div className="stack">
             <div>
-              <label className="field-label">Email</label>
+              <label className="field-label" htmlFor="auth-email">
+                Email
+              </label>
               <input
+                id="auth-email"
                 type="email"
+                autoComplete="email"
+                inputMode="email"
                 placeholder="you@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -68,9 +78,13 @@ export default function Auth({ onSuccess }) {
               />
             </div>
             <div>
-              <label className="field-label">Пароль</label>
+              <label className="field-label" htmlFor="auth-password">
+                Пароль
+              </label>
               <input
+                id="auth-password"
                 type="password"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 placeholder="минимум 6 символов"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

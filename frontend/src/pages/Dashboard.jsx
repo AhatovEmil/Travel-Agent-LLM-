@@ -176,7 +176,7 @@ export default function Dashboard({ onOpen }) {
     <div className="container">
       <div className="page-hero dash-hero">
         <div className="dash-hero-copy">
-          <p className="hero-kicker">Travel Agent</p>
+          <p className="hero-kicker dash-brand-line">Travel Agent</p>
           <h1>Куда отправимся?</h1>
           <p>
             Несколько вопросов — и готовый план по дням, бюджет и чеклист.
@@ -237,7 +237,7 @@ export default function Dashboard({ onOpen }) {
         </p>
       )}
 
-      <section className="card wizard-card">
+      <section className="wizard-card">
         <div className="wizard-steps">
           {STEPS.map((label, i) => (
             <div

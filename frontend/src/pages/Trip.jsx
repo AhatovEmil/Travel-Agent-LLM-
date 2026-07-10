@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api.js'
+import Markdown from '../Markdown.jsx'
+import { api, downloadTripMarkdown } from '../api.js'
 
 const PHASES = [
   ['brief', 'ТЗ поездки'],
@@ -13,6 +14,7 @@ export default function Trip({ tripId, onBack }) {
   const [artifacts, setArtifacts] = useState([])
   const [openArtifact, setOpenArtifact] = useState(null)
   const [error, setError] = useState('')
+  const [downloadError, setDownloadError] = useState('')
 
   useEffect(() => {
     let timer
@@ -20,8 +22,10 @@ export default function Trip({ tripId, onBack }) {
       try {
         const t = await api.getTrip(tripId)
         setTrip(t)
-        setArtifacts(await api.getArtifacts(tripId))
+        const arts = await api.getArtifacts(tripId)
+        setArtifacts(arts)
         if (t.status === 'running') timer = setTimeout(load, 2000)
+        else if (arts.length && openArtifact === null) setOpenArtifact(arts[0].id)
       } catch (err) {
         setError(err.message)
       }
@@ -44,9 +48,19 @@ export default function Trip({ tripId, onBack }) {
     try {
       await api.runTrip(tripId)
       setArtifacts([])
+      setOpenArtifact(null)
       setTrip({ ...trip, status: 'running', current_phase: 'brief', error: '' })
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  const download = async () => {
+    setDownloadError('')
+    try {
+      await downloadTripMarkdown(tripId, trip.name)
+    } catch (err) {
+      setDownloadError(err.message)
     }
   }
 
@@ -55,21 +69,29 @@ export default function Trip({ tripId, onBack }) {
       <button className="ghost" onClick={onBack}>
         ← Все поездки
       </button>
-      <div className="row">
-        <h1>{trip.name}</h1>
-        <div className="row gap">
-          {(trip.status === 'completed' || trip.status === 'failed') && (
-            <button className="ghost" onClick={rerun}>
-              Перегенерировать
-            </button>
-          )}
+      <div className="page-hero" style={{ marginTop: 16 }}>
+        <div className="row">
+          <h1>{trip.name}</h1>
+          <div className="row gap">
+            {trip.status === 'completed' && (
+              <button className="primary" onClick={download}>
+                Скачать .md
+              </button>
+            )}
+            {(trip.status === 'completed' || trip.status === 'failed') && (
+              <button className="ghost" onClick={rerun}>
+                Перегенерировать
+              </button>
+            )}
+          </div>
         </div>
+        <p>{trip.brief}</p>
       </div>
-      <p className="muted">{trip.brief}</p>
       <p className="muted notice">
         Черновик от ИИ: адреса, часы работы и цены ориентировочные — проверяйте перед поездкой.
       </p>
       {trip.error && <div className="error">{trip.error}</div>}
+      {downloadError && <div className="error">{downloadError}</div>}
 
       <div className="phases">
         {PHASES.map(([key, label]) => {
@@ -84,7 +106,7 @@ export default function Trip({ tripId, onBack }) {
       </div>
 
       <section>
-        <h2>Артефакты</h2>
+        <h2>План поездки</h2>
         {artifacts.length === 0 && <p className="muted">Агент ещё работает…</p>}
         {artifacts.map((a) => (
           <div key={a.id} className="card slim">
@@ -95,7 +117,7 @@ export default function Trip({ tripId, onBack }) {
               <strong>{a.title}</strong>
               <span>{openArtifact === a.id ? '▾' : '▸'}</span>
             </button>
-            {openArtifact === a.id && <pre className="doc">{a.content}</pre>}
+            {openArtifact === a.id && <Markdown>{a.content}</Markdown>}
           </div>
         ))}
       </section>

@@ -1,61 +1,39 @@
 # Travel Agent
 
-ИИ-агент для планирования поездок: вы описываете куда и на сколько едете,
-агент через DeepSeek собирает **Brief**, **план по дням**, **бюджет** и **чеклист**.
+ИИ-агент для планирования поездок: мастер вопросов → план по дням, бюджет и чеклист (DeepSeek).
+
+**Установка с нуля:** [INSTALL.md](INSTALL.md)
+
+## Быстрый старт
+
+1. Ключ DeepSeek в `backend/.env` (см. `.env.example`)
+2. Двойной клик **`start.bat`**
+3. Откройте http://localhost:5173
 
 ## Возможности
 
-- Регистрация и вход (JWT)
-- Создание поездки свободным текстом
-- Конвейер из 4 фаз с прогрессом в UI
-- DeepSeek LLM (ключ обязателен)
+- Мастер: куда → срок → бюджет → интересы
+- 4 фазы: Brief, Itinerary, Budget, Checklist
+- Читаемый текст на сайте (без сырого `####` / `**`)
+- Скачивание плана `.md`
 - Docker Compose, автотесты, Swagger
 
-## Подключение DeepSeek
-
-1. Зарегистрируйтесь на https://platform.deepseek.com
-2. Создайте API Key и пополните баланс ($1–2 хватит надолго)
-3. Создайте `backend/.env`:
-
-```
-JWT_SECRET=change-me-in-production
-LLM_API_KEY=sk-ваш_ключ
-LLM_BASE_URL=https://api.deepseek.com/v1
-LLM_MODEL=deepseek-chat
-LLM_MODEL_FALLBACKS=deepseek-reasoner
-```
-
-## Быстрый старт (Docker)
+## Docker
 
 ```bash
-cp .env.example .env
-# заполните LLM_API_KEY
+cp .env.example .env   # заполните LLM_API_KEY
 docker compose up --build
 ```
 
 - Frontend: http://localhost:3000
-- API / Swagger: http://localhost:8000/docs
+- API: http://localhost:8000/docs
 
-## Локальная разработка
+## Документация
 
-Backend:
-
-```bash
-cd backend
-pip install -r requirements.txt
-# создайте .env с LLM_API_KEY
-uvicorn app.main:app --reload --port 8000
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Откройте http://localhost:5173
+- [INSTALL.md](INSTALL.md) — установка
+- [docs/API.md](docs/API.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ## Тесты
 
@@ -63,16 +41,3 @@ npm run dev
 cd backend
 pytest
 ```
-
-## Как пользоваться
-
-1. Зарегистрируйтесь на сайте
-2. Создайте поездку: «Батуми, 5 дней, 50 тыс ₽, море и еда»
-3. Дождитесь фаз Brief → Itinerary → Budget → Checklist
-4. Читайте артефакты на странице поездки
-
-Цены и адреса от ИИ — **ориентир**, проверяйте перед поездкой.
-
-## API
-
-См. [docs/API.md](docs/API.md). Архитектура: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

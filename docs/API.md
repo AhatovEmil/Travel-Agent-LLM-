@@ -18,6 +18,7 @@
 - `DELETE /api/trips/{id}` — удаление
 - `POST /api/trips/{id}/run` — запуск агента (`202`). Без `LLM_API_KEY` → `503`
 - `GET /api/trips/{id}/artifacts` — артефакты фаз
+- `GET /api/trips/{id}/export` — скачать весь план одним `.md` (только `completed`)
 
 Статусы: `draft | running | completed | failed`.  
 Фазы: `brief | itinerary | budget | checklist`.

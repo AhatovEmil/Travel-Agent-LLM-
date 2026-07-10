@@ -27,8 +27,10 @@ export default function Auth({ onSuccess }) {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={submit}>
-        <h1>Travel Agent</h1>
-        <p className="muted">ИИ-помощник: план поездки, бюджет и чеклист</p>
+        <div className="brand-mark">
+          Travel <span>Agent</span>
+        </div>
+        <p className="muted">План поездки, бюджет и чеклист за пару минут</p>
         <div className="tabs">
           <button
             type="button"
@@ -46,21 +48,27 @@ export default function Auth({ onSuccess }) {
           </button>
         </div>
         <div className="stack">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Пароль (мин. 6 символов)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-          />
+          <div>
+            <label className="field-label">Email</label>
+            <input
+              type="email"
+              placeholder="you@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="field-label">Пароль</label>
+            <input
+              type="password"
+              placeholder="минимум 6 символов"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+            />
+          </div>
           {error && <div className="error">{error}</div>}
           <button className="primary" disabled={busy}>
             {busy ? '…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -6,6 +6,7 @@ from ..config import settings
 from ..deps import get_current_user, get_db
 from ..models import Trip, User
 from ..schemas import ArtifactOut, TripCreate, TripOut
+from ..services.export import build_trip_markdown
 from ..services.pipeline import run_pipeline
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
@@ -92,3 +93,30 @@ def list_artifacts(
 ):
     trip = _get_owned_trip(trip_id, current_user, db)
     return trip.artifacts
+
+
+@router.get("/{trip_id}/export")
+def export_trip(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    if trip.status != "completed":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Trip is not completed yet")
+    if not trip.artifacts:
+        raise HTTPException(status.HTTP_409_CONFLICT, "No artifacts to export")
+    content = build_trip_markdown(trip)
+    ascii_name = "".join(c if c.isascii() and (c.isalnum() or c in "-_") else "_" for c in trip.name)
+    ascii_name = ascii_name.strip("_")[:60] or f"trip-{trip.id}"
+    filename = f"{ascii_name}.md"
+    # RFC 5987 — корректное имя с кириллицей в современных браузерах
+    from urllib.parse import quote
+
+    utf8_name = quote(f"{trip.name.strip() or ascii_name}.md")
+    disposition = f"attachment; filename=\"{filename}\"; filename*=UTF-8''{utf8_name}"
+    return Response(
+        content=content.encode("utf-8"),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": disposition},
+    )

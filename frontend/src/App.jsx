@@ -29,7 +29,7 @@ export default function App() {
     <div className="layout">
       <header className="topbar">
         <button className="brand" onClick={() => setTripId(null)}>
-          Travel Agent
+          Travel <span>Agent</span>
         </button>
         <button className="ghost" onClick={logout}>
           Выйти

@@ -85,3 +85,21 @@ def test_pipeline_marks_failed_on_llm_error(client, auth_headers, monkeypatch):
     assert status == "failed"
     trip = client.get(f"/api/trips/{trip_id}", headers=auth_headers).json()
     assert "DeepSeek offline" in trip["error"]
+
+
+def test_export_markdown(client, auth_headers, monkeypatch):
+    _mock_engine(monkeypatch)
+    trip_id = client.post("/api/trips", json=TRIP, headers=auth_headers).json()["id"]
+    assert _run_to_completion(client, auth_headers, trip_id) == "completed"
+
+    response = client.get(f"/api/trips/{trip_id}/export", headers=auth_headers)
+    assert response.status_code == 200
+    assert "text/markdown" in response.headers["content-type"]
+    text = response.content.decode("utf-8")
+    assert "# Батуми" in text
+    assert "Itinerary" in text or "День 1" in text
+
+
+def test_export_before_completion_conflict(client, auth_headers):
+    trip_id = client.post("/api/trips", json=TRIP, headers=auth_headers).json()["id"]
+    assert client.get(f"/api/trips/{trip_id}/export", headers=auth_headers).status_code == 409

@@ -84,9 +84,10 @@ export default function ShareTrip({ token }) {
       </div>
 
       {data.links && (
-        <div className="row gap wrap" style={{ margin: '16px 0' }}>
+        <section className="booking-section">
+          <h2>Бронирование</h2>
           <LinkButtons links={data.links} />
-        </div>
+        </section>
       )}
 
       <section>

@@ -48,6 +48,7 @@ def build_trip_extras(trip: Trip, geocode_limit: int = 5) -> dict:
     start = trip.start_date or extract_start_date(trip.brief)
     itinerary = arts.get("itinerary", "")
     days = parse_itinerary_days(itinerary, start_date=start)
+    link_kwargs = {"checkin": start, "nights": days_count}
 
     place_cache: dict[str, dict | None] = {}
 
@@ -78,12 +79,17 @@ def build_trip_extras(trip: Trip, geocode_limit: int = 5) -> dict:
         if coord in seen_coords:
             continue
         seen_coords.add(coord)
-        item = {**hit, "links": place_links(hit.get("name") or hit.get("query", ""), destination)}
+        item = {
+            **hit,
+            "links": place_links(
+                hit.get("name") or hit.get("query", ""), destination, **link_kwargs
+            ),
+        }
         places.append(item)
 
     center = places[0] if places else geocode(destination)
     if center and "links" not in center:
-        center = {**center, "links": destination_links(destination)}
+        center = {**center, "links": destination_links(destination, **link_kwargs)}
 
     weather: list[dict] = []
     if center:
@@ -92,14 +98,14 @@ def build_trip_extras(trip: Trip, geocode_limit: int = 5) -> dict:
 
     for day in days:
         day["weather"] = weather_by_date.get(day.get("date") or "")
-        day["links"] = destination_links(destination)
+        day["links"] = destination_links(destination, **link_kwargs)
         slots = day.get("slots") or []
         enriched = []
         for i, slot in enumerate(slots):
             geo = resolve(slot["place"])
             item = {
                 **slot,
-                "links": place_links(slot["place"], destination),
+                "links": place_links(slot["place"], destination, **link_kwargs),
                 "lat": geo["lat"] if geo else None,
                 "lon": geo["lon"] if geo else None,
             }
@@ -135,7 +141,7 @@ def build_trip_extras(trip: Trip, geocode_limit: int = 5) -> dict:
         "center": center,
         "places": places,
         "weather": weather,
-        "links": destination_links(destination),
+        "links": destination_links(destination, **link_kwargs),
     }
 
 

@@ -43,8 +43,20 @@ def test_replace_day():
 
 
 def test_links_shape():
-    links = place_links("Бульвар", "Батуми")
+    from datetime import date
+
+    links = place_links("Бульвар", "Батуми", checkin=date(2026, 7, 12), nights=5)
     assert "yandex.ru/maps" in links["maps"]
     assert "booking.com" in links["booking"]
-    assert "aviasales" in links["tickets"]
-    assert destination_links("Батуми")["maps"]
+    assert "ss=Батуми" in links["booking"] or "ss=%D0%91" in links["booking"]
+    assert "checkin=2026-07-12" in links["booking"]
+    assert "checkout=2026-07-17" in links["booking"]
+    assert any(s["id"] == "ostrovok" for s in links["stay"])
+    assert "Батуми" in links["stay"][1]["url"] or "%D0%91" in links["stay"][1]["url"]
+    assert "12.07.2026" in links["stay"][1]["url"] or "12.07.2026" in links["stay"][1]["url"].replace("%2E", ".")
+    assert any(s["id"] == "yandex_hotels" for s in links["stay"])
+    assert "query=" in links["stay"][2]["url"]
+    assert any(t["id"] == "aviasales" for t in links["tickets"])
+    assert "destination_name=" in links["tickets"][0]["url"]
+    assert any(t["id"] == "tutu" for t in links["tickets"])
+    assert destination_links("Батуми", checkin=date(2026, 7, 12))["maps"]

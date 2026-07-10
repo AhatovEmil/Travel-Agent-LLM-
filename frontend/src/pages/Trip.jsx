@@ -295,9 +295,21 @@ export default function Trip({ tripId, onBack }) {
       </div>
 
       {extras?.links && (
-        <div className="row gap wrap" style={{ marginBottom: 16 }}>
+        <section className="booking-section">
+          <div className="section-title">
+            <h2>Бронирование</h2>
+            <span className="muted small">
+              {extras.destination}
+              {extras.links?.checkin
+                ? ` · ${extras.links.checkin} → ${extras.links.checkout}`
+                : ''}
+            </span>
+          </div>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            Ссылки открывают поиск по городу и датам поездки (не главную сайта).
+          </p>
           <LinkButtons links={extras.links} />
-        </div>
+        </section>
       )}
 
       {itinerary && idle && (

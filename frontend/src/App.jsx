@@ -2,25 +2,25 @@ import { useEffect, useState } from 'react'
 import { clearToken, getToken } from './api.js'
 import Auth from './pages/Auth.jsx'
 import Dashboard from './pages/Dashboard.jsx'
-import Project from './pages/Project.jsx'
+import Trip from './pages/Trip.jsx'
 
 export default function App() {
   const [authed, setAuthed] = useState(Boolean(getToken()))
-  const [projectId, setProjectId] = useState(null)
+  const [tripId, setTripId] = useState(null)
 
   useEffect(() => {
     const onLogout = () => {
       setAuthed(false)
-      setProjectId(null)
+      setTripId(null)
     }
-    window.addEventListener('aitf-logout', onLogout)
-    return () => window.removeEventListener('aitf-logout', onLogout)
+    window.addEventListener('travel-logout', onLogout)
+    return () => window.removeEventListener('travel-logout', onLogout)
   }, [])
 
   const logout = () => {
     clearToken()
     setAuthed(false)
-    setProjectId(null)
+    setTripId(null)
   }
 
   if (!authed) return <Auth onSuccess={() => setAuthed(true)} />
@@ -28,18 +28,18 @@ export default function App() {
   return (
     <div className="layout">
       <header className="topbar">
-        <button className="brand" onClick={() => setProjectId(null)}>
-          ⚡ AI Technical Founder
+        <button className="brand" onClick={() => setTripId(null)}>
+          Travel Agent
         </button>
         <button className="ghost" onClick={logout}>
           Выйти
         </button>
       </header>
       <main>
-        {projectId === null ? (
-          <Dashboard onOpen={setProjectId} />
+        {tripId === null ? (
+          <Dashboard onOpen={setTripId} />
         ) : (
-          <Project projectId={projectId} onBack={() => setProjectId(null)} />
+          <Trip tripId={tripId} onBack={() => setTripId(null)} />
         )}
       </main>
     </div>

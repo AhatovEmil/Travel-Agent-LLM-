@@ -1,32 +1,30 @@
-"""Оркестрация конвейера агента: 6 фаз от идеи до проверенного кода."""
+"""Оркестрация travel-конвейера: Brief → Itinerary → Budget → Checklist."""
 
 import logging
+import time
 
 from sqlalchemy.orm import Session
 
 from ..database import SessionLocal
-from ..models import Artifact, GeneratedFile, Project
-from .engine import get_engine
-from .verifier import verify_files
+from ..models import Artifact, Trip
+from .engine import LLMGenerationError, get_engine
 
 logger = logging.getLogger(__name__)
 
-PHASES = ["vision", "roadmap", "architecture", "structure", "code", "verify"]
+PHASES = ["brief", "itinerary", "budget", "checklist"]
 
 PHASE_TITLES = {
-    "vision": "Project Vision",
-    "roadmap": "Roadmap",
-    "architecture": "Architecture",
-    "structure": "Project Structure",
-    "code": "Code Generation",
-    "verify": "Verification Report",
+    "brief": "Brief — ТЗ поездки",
+    "itinerary": "Itinerary — план по дням",
+    "budget": "Budget — бюджет",
+    "checklist": "Checklist — чеклист",
 }
 
 
-def _save_artifact(db: Session, project: Project, phase: str, content: str) -> None:
+def _save_artifact(db: Session, trip: Trip, phase: str, content: str) -> None:
     db.add(
         Artifact(
-            project_id=project.id,
+            trip_id=trip.id,
             phase=phase,
             title=PHASE_TITLES[phase],
             content=content,
@@ -35,68 +33,52 @@ def _save_artifact(db: Session, project: Project, phase: str, content: str) -> N
     db.commit()
 
 
-def run_pipeline(project_id: int) -> None:
-    """Выполняется в фоне. Ошибки не поднимаются наружу — фиксируются в статусе проекта."""
+def run_pipeline(trip_id: int) -> None:
     db = SessionLocal()
     try:
-        project = db.get(Project, project_id)
-        if project is None:
+        trip = db.get(Trip, trip_id)
+        if trip is None:
             return
 
-        # Повторный запуск: очищаем прошлые результаты.
-        for artifact in list(project.artifacts):
+        for artifact in list(trip.artifacts):
             db.delete(artifact)
-        for file in list(project.files):
-            db.delete(file)
-        project.status = "running"
-        project.error = ""
+        trip.status = "running"
+        trip.error = ""
         db.commit()
 
         engine = get_engine()
-
         generators = {
-            "vision": engine.generate_vision,
-            "roadmap": engine.generate_roadmap,
-            "architecture": engine.generate_architecture,
-            "structure": engine.generate_structure,
+            "brief": engine.generate_brief,
+            "itinerary": engine.generate_itinerary,
+            "budget": engine.generate_budget,
+            "checklist": engine.generate_checklist,
         }
-        for phase in ["vision", "roadmap", "architecture", "structure"]:
-            project.current_phase = phase
+
+        for phase in PHASES:
+            trip.current_phase = phase
             db.commit()
-            _save_artifact(db, project, phase, generators[phase](project.name, project.idea))
+            content = generators[phase](trip.name, trip.brief)
+            _save_artifact(db, trip, phase, content)
+            time.sleep(0.8)
 
-        project.current_phase = "code"
+        trip.status = "completed"
+        trip.current_phase = "checklist"
         db.commit()
-        files = engine.generate_code(project.name, project.idea)
-        for path, content in files.items():
-            db.add(GeneratedFile(project_id=project.id, path=path, content=content))
-        db.commit()
-        _save_artifact(
-            db,
-            project,
-            "code",
-            "# Code Generation\n\nСгенерированы файлы:\n\n"
-            + "\n".join(f"- `{p}`" for p in sorted(files)),
-        )
-
-        project.current_phase = "verify"
-        db.commit()
-        ok, report = verify_files(files)
-        _save_artifact(db, project, "verify", report)
-
-        if ok:
-            project.status = "completed"
-        else:
-            project.status = "failed"
-            project.error = "Верификация сгенерированного кода не пройдена, см. отчёт verify."
-        db.commit()
-    except Exception as exc:  # noqa: BLE001 — фоновая задача обязана зафиксировать любую ошибку
-        logger.exception("Pipeline failed for project %s", project_id)
+    except LLMGenerationError as exc:
+        logger.error("Travel LLM failed for trip %s: %s", trip_id, exc)
         db.rollback()
-        project = db.get(Project, project_id)
-        if project is not None:
-            project.status = "failed"
-            project.error = f"{type(exc).__name__}: {exc}"
+        trip = db.get(Trip, trip_id)
+        if trip is not None:
+            trip.status = "failed"
+            trip.error = str(exc)
+            db.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Pipeline failed for trip %s", trip_id)
+        db.rollback()
+        trip = db.get(Trip, trip_id)
+        if trip is not None:
+            trip.status = "failed"
+            trip.error = f"{type(exc).__name__}: {exc}"
             db.commit()
     finally:
         db.close()

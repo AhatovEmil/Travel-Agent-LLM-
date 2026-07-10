@@ -4,8 +4,8 @@
   --border: #30363d;
   --text: #e6edf3;
   --muted: #8b949e;
-  --accent: #7c5cff;
-  --accent-hover: #9678ff;
+  --accent: #0d9488;
+  --accent-hover: #14b8a6;
   --danger: #f85149;
   --success: #3fb950;
 }
@@ -55,6 +55,14 @@ h1, h2, h3 {
   max-width: 900px;
   margin: 0 auto;
   padding: 24px 16px 64px;
+}
+
+.notice {
+  font-size: 13px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: rgba(13, 148, 136, 0.08);
+  border-radius: 0 8px 8px 0;
 }
 
 .card {

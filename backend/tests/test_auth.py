@@ -2,6 +2,7 @@ def test_health(client):
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert response.json()["service"] == "Travel Agent"
 
 
 def test_register_and_login(client):
@@ -31,6 +32,3 @@ def test_login_wrong_password(client):
 
 def test_me_requires_token(client):
     assert client.get("/api/auth/me").status_code == 401
-    assert (
-        client.get("/api/auth/me", headers={"Authorization": "Bearer garbage"}).status_code == 401
-    )

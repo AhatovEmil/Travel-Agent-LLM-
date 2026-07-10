@@ -3,19 +3,19 @@ import { api } from '../api.js'
 
 const STATUS_LABELS = {
   draft: ['Черновик', 'badge'],
-  running: ['Генерация…', 'badge running'],
+  running: ['Планирую…', 'badge running'],
   completed: ['Готов', 'badge done'],
   failed: ['Ошибка', 'badge failed'],
 }
 
 export default function Dashboard({ onOpen }) {
-  const [projects, setProjects] = useState([])
+  const [trips, setTrips] = useState([])
   const [name, setName] = useState('')
-  const [idea, setIdea] = useState('')
+  const [brief, setBrief] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const refresh = () => api.listProjects().then(setProjects).catch((e) => setError(e.message))
+  const refresh = () => api.listTrips().then(setTrips).catch((e) => setError(e.message))
 
   useEffect(() => {
     refresh()
@@ -28,12 +28,12 @@ export default function Dashboard({ onOpen }) {
     setError('')
     setBusy(true)
     try {
-      const project = await api.createProject(name, idea)
-      await api.runProject(project.id)
+      const trip = await api.createTrip(name, brief)
+      await api.runTrip(trip.id)
       setName('')
-      setIdea('')
+      setBrief('')
       await refresh()
-      onOpen(project.id)
+      onOpen(trip.id)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -42,63 +42,63 @@ export default function Dashboard({ onOpen }) {
   }
 
   const remove = async (id) => {
-    if (!window.confirm('Удалить проект?')) return
-    await api.deleteProject(id)
+    if (!window.confirm('Удалить поездку?')) return
+    await api.deleteTrip(id)
     refresh()
   }
 
   return (
     <div className="container">
       <section className="card">
-        <h2>Новый проект</h2>
+        <h2>Новая поездка</h2>
         <p className="muted">
-          Опишите идею — агент проведёт анализ, составит план, выберет архитектуру и сгенерирует
-          запускаемый код.
+          Опишите куда, на сколько дней, бюджет и интересы — агент соберёт план, бюджет и
+          чеклист. Нужен ключ DeepSeek в backend/.env. Цены и адреса — ориентир, проверяйте.
         </p>
         <form onSubmit={create} className="stack">
           <input
-            placeholder="Название проекта, например: Маркетплейс одежды"
+            placeholder="Название, например: Батуми на майские"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             maxLength={255}
           />
           <textarea
-            placeholder="Идея: Хочу сделать маркетплейс одежды с каталогом и заказами…"
-            value={idea}
-            onChange={(e) => setIdea(e.target.value)}
+            placeholder="Батуми, 5 дней, бюджет 50 тыс ₽, море, еда, без экстрима…"
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
             rows={4}
             minLength={10}
             required
           />
           {error && <div className="error">{error}</div>}
           <button className="primary" disabled={busy}>
-            {busy ? 'Запускаю агента…' : '🚀 Построить MVP'}
+            {busy ? 'Запускаю агента…' : 'Спланировать поездку'}
           </button>
         </form>
       </section>
 
       <section>
-        <h2>Мои проекты</h2>
-        {projects.length === 0 && <p className="muted">Пока пусто — создайте первый проект.</p>}
+        <h2>Мои поездки</h2>
+        {trips.length === 0 && <p className="muted">Пока пусто — создайте первую поездку.</p>}
         <div className="grid">
-          {projects.map((p) => {
-            const [label, cls] = STATUS_LABELS[p.status] || [p.status, 'badge']
+          {trips.map((t) => {
+            const [label, cls] = STATUS_LABELS[t.status] || [t.status, 'badge']
             return (
-              <div key={p.id} className="card project-card" onClick={() => onOpen(p.id)}>
+              <div key={t.id} className="card project-card" onClick={() => onOpen(t.id)}>
                 <div className="row">
-                  <h3>{p.name}</h3>
+                  <h3>{t.name}</h3>
                   <span className={cls}>{label}</span>
                 </div>
-                <p className="muted clamp">{p.idea}</p>
-                {p.status === 'running' && (
-                  <p className="muted">Фаза: {p.current_phase || '…'}</p>
+                <p className="muted clamp">{t.brief}</p>
+                {t.status === 'running' && (
+                  <p className="muted">Фаза: {t.current_phase || '…'}</p>
                 )}
                 <button
                   className="ghost danger"
                   onClick={(e) => {
                     e.stopPropagation()
-                    remove(p.id)
+                    remove(t.id)
                   }}
                 >
                   Удалить

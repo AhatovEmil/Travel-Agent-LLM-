@@ -2,13 +2,13 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: aitf
-      POSTGRES_PASSWORD: aitf_password
-      POSTGRES_DB: aitf
+      POSTGRES_USER: travel
+      POSTGRES_PASSWORD: travel_password
+      POSTGRES_DB: travel
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aitf"]
+      test: ["CMD-SHELL", "pg_isready -U travel"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -16,11 +16,12 @@ services:
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+psycopg2://aitf:aitf_password@db:5432/aitf
+      DATABASE_URL: postgresql+psycopg2://travel:travel_password@db:5432/travel
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
-      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
+      LLM_MODEL_FALLBACKS: ${LLM_MODEL_FALLBACKS:-deepseek-reasoner}
       CORS_ORIGINS: "*"
     depends_on:
       db:

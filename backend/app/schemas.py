@@ -26,17 +26,17 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
-class ProjectCreate(BaseModel):
+class TripCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    idea: str = Field(min_length=10, max_length=10000)
+    brief: str = Field(min_length=10, max_length=10000)
 
 
-class ProjectOut(BaseModel):
+class TripOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     name: str
-    idea: str
+    brief: str
     status: str
     current_phase: str
     error: str
@@ -52,11 +52,3 @@ class ArtifactOut(BaseModel):
     title: str
     content: str
     created_at: datetime
-
-
-class GeneratedFileOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    path: str
-    content: str

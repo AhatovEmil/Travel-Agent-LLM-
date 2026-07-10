@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'aitf_token'
+const TOKEN_KEY = 'travel_token'
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY)
 export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token)
@@ -12,7 +12,7 @@ async function request(path, options = {}) {
   const response = await fetch(path, { ...options, headers })
   if (response.status === 401) {
     clearToken()
-    window.dispatchEvent(new Event('aitf-logout'))
+    window.dispatchEvent(new Event('travel-logout'))
   }
   if (!response.ok) {
     let detail = `Ошибка ${response.status}`
@@ -20,7 +20,7 @@ async function request(path, options = {}) {
       const body = await response.json()
       if (typeof body.detail === 'string') detail = body.detail
     } catch {
-      /* тело не JSON */
+      /* ignore */
     }
     throw new Error(detail)
   }
@@ -34,26 +34,11 @@ export const api = {
   login: (email, password) =>
     request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   me: () => request('/api/auth/me'),
-  listProjects: () => request('/api/projects'),
-  createProject: (name, idea) =>
-    request('/api/projects', { method: 'POST', body: JSON.stringify({ name, idea }) }),
-  getProject: (id) => request(`/api/projects/${id}`),
-  deleteProject: (id) => request(`/api/projects/${id}`, { method: 'DELETE' }),
-  runProject: (id) => request(`/api/projects/${id}/run`, { method: 'POST' }),
-  getArtifacts: (id) => request(`/api/projects/${id}/artifacts`),
-  getFiles: (id) => request(`/api/projects/${id}/files`),
-}
-
-export async function downloadZip(id, name) {
-  const response = await fetch(`/api/projects/${id}/download`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
-  })
-  if (!response.ok) throw new Error('Скачивание недоступно: проект ещё не завершён')
-  const blob = await response.blob()
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `${name || 'project'}.zip`
-  link.click()
-  URL.revokeObjectURL(url)
+  listTrips: () => request('/api/trips'),
+  createTrip: (name, brief) =>
+    request('/api/trips', { method: 'POST', body: JSON.stringify({ name, brief }) }),
+  getTrip: (id) => request(`/api/trips/${id}`),
+  deleteTrip: (id) => request(`/api/trips/${id}`, { method: 'DELETE' }),
+  runTrip: (id) => request(`/api/trips/${id}/run`, { method: 'POST' }),
+  getArtifacts: (id) => request(`/api/trips/${id}/artifacts`),
 }

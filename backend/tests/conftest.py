@@ -2,9 +2,9 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ["DATABASE_URL"] = "sqlite:///./test_aitf.db"
+os.environ["DATABASE_URL"] = "sqlite:///./test_travel.db"
 os.environ["JWT_SECRET"] = "test-secret"
-os.environ["LLM_API_KEY"] = ""
+os.environ["LLM_API_KEY"] = "test-key-for-pytest"
 
 import pytest
 from fastapi.testclient import TestClient
@@ -29,7 +29,7 @@ def client():
 @pytest.fixture
 def auth_headers(client):
     response = client.post(
-        "/api/auth/register", json={"email": "founder@test.com", "password": "secret123"}
+        "/api/auth/register", json={"email": "traveler@test.com", "password": "secret123"}
     )
     assert response.status_code == 201, response.text
     token = response.json()["access_token"]

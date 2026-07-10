@@ -27,34 +27,45 @@ export default function Auth({ onSuccess }) {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={submit}>
-        <h1>⚡ AI Technical Founder</h1>
-        <p className="muted">Идея → готовый MVP. Под ключ.</p>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Пароль (минимум 6 символов)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          minLength={6}
-          required
-        />
-        {error && <div className="error">{error}</div>}
-        <button className="primary" disabled={busy}>
-          {busy ? '...' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}
-        </button>
-        <button
-          type="button"
-          className="ghost"
-          onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-        >
-          {mode === 'login' ? 'Нет аккаунта? Регистрация' : 'Уже есть аккаунт? Вход'}
-        </button>
+        <h1>Travel Agent</h1>
+        <p className="muted">ИИ-помощник: план поездки, бюджет и чеклист</p>
+        <div className="tabs">
+          <button
+            type="button"
+            className={mode === 'login' ? 'tab active' : 'tab'}
+            onClick={() => setMode('login')}
+          >
+            Вход
+          </button>
+          <button
+            type="button"
+            className={mode === 'register' ? 'tab active' : 'tab'}
+            onClick={() => setMode('register')}
+          >
+            Регистрация
+          </button>
+        </div>
+        <div className="stack">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Пароль (мин. 6 символов)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+          />
+          {error && <div className="error">{error}</div>}
+          <button className="primary" disabled={busy}>
+            {busy ? '…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}
+          </button>
+        </div>
       </form>
     </div>
   )

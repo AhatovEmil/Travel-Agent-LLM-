@@ -3,13 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import Base, engine
-from .routers import auth, projects
+from .routers import auth, trips
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.app_name,
-    description="ИИ-агент, который превращает бизнес-идею в готовый MVP-проект.",
+    description="ИИ-агент, который планирует поездки: маршрут, бюджет и чеклист.",
     version="1.0.0",
 )
 
@@ -23,7 +23,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
-app.include_router(projects.router)
+app.include_router(trips.router)
 
 
 @app.get("/api/health", tags=["health"])

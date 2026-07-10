@@ -7,7 +7,8 @@
 ## Быстрый старт
 
 1. Ключ DeepSeek в `backend/.env` (см. `.env.example`)
-2. Двойной клик **`start.bat`**
+2. **Windows:** двойной клик `start.bat`  
+   **macOS:** два терминала — `uvicorn` на `:8000` и `npm run dev` (подробно в [INSTALL.md](INSTALL.md))
 3. Откройте http://localhost:5173
 
 ## Возможности

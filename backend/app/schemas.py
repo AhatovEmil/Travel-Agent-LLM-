@@ -116,3 +116,42 @@ class VoteOut(BaseModel):
     voter: str
     value: str
     created_at: datetime
+
+
+class QuestRequest(BaseModel):
+    day_index: int = Field(ge=0, le=30)
+
+
+class JournalCreate(BaseModel):
+    day_index: int = Field(ge=0, le=60)
+    kind: str = Field(default="note", pattern="^(note|evening)$")
+    mood: str = Field(default="", max_length=32)
+    content: str = Field(default="", max_length=8000)
+    done_slots: list[str] = Field(default_factory=list)
+
+
+class JournalUpdate(BaseModel):
+    mood: str | None = Field(default=None, max_length=32)
+    content: str | None = Field(default=None, max_length=8000)
+    done_slots: list[str] | None = None
+
+
+class JournalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    trip_id: int
+    day_index: int
+    kind: str
+    mood: str
+    content: str
+    done_slots: list[str] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+
+class EveningCheckin(BaseModel):
+    day_index: int = Field(ge=0, le=60)
+    mood: str = Field(default="ok", max_length=32)
+    content: str = Field(default="", max_length=8000)
+    done_slots: list[str] = Field(default_factory=list)

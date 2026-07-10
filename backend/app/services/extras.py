@@ -41,7 +41,7 @@ def _feasibility(gap_min: int | None, walk_min: float | None) -> str:
     return "impossible"
 
 
-def build_trip_extras(trip: Trip, geocode_limit: int = 5) -> dict:
+def build_trip_extras(trip: Trip, geocode_limit: int = 10) -> dict:
     arts = {a.phase: a.content for a in trip.artifacts}
     destination = extract_destination(trip.brief, trip.name)
     days_count = extract_days_count(trip.brief)

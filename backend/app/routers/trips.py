@@ -6,15 +6,20 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..deps import get_current_user, get_db
-from ..models import ArtifactVersion, ChatMessage, Trip, User
+from ..models import ArtifactVersion, ChatMessage, JournalEntry, Trip, User
 from ..schemas import (
     AskResponse,
     ArtifactOut,
     ArtifactVersionOut,
     ChatMessageOut,
     ChatRequest,
+    EveningCheckin,
+    JournalCreate,
+    JournalOut,
+    JournalUpdate,
     LiveAdjustRequest,
     PhaseRerunRequest,
+    QuestRequest,
     ShareResponse,
     TripCreate,
     TripOut,
@@ -32,6 +37,35 @@ from ..services.pipeline import (
     run_rebuild_from_votes,
     run_single_phase,
 )
+from ..services.street_smart import (
+    build_arrival,
+    build_quest_fallback,
+    build_survival,
+    build_taste,
+    build_traps,
+)
+from ..services.trip_os import (
+    MOODS,
+    build_morning_briefing,
+    parse_done_slots,
+    serialize_done_slots,
+    trip_day_window,
+)
+from ..services.parse import parse_itinerary_days
+
+
+def _journal_out(entry: JournalEntry) -> JournalOut:
+    return JournalOut(
+        id=entry.id,
+        trip_id=entry.trip_id,
+        day_index=entry.day_index,
+        kind=entry.kind,
+        mood=entry.mood or "",
+        content=entry.content or "",
+        done_slots=parse_done_slots(entry.done_slots),
+        created_at=entry.created_at,
+        updated_at=entry.updated_at,
+    )
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
 
@@ -448,3 +482,280 @@ def export_trip_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": _disposition(trip, "pdf")},
     )
+
+
+# ——— Street Smart ———
+
+
+@router.get("/{trip_id}/street-smart/survival")
+def street_survival(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    return build_survival(trip)
+
+
+@router.post("/{trip_id}/street-smart/survival/enrich")
+def street_survival_enrich(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    _require_llm_key()
+    _require_llm_budget(current_user)
+    base = build_survival(trip)
+    try:
+        engine = get_engine()
+        phrases = engine.enrich_survival_phrases(base["destination"], base["region_label"])
+        if phrases:
+            base["phrases"] = phrases
+            base["source"] = "llm"
+    except LLMGenerationError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+    return base
+
+
+@router.get("/{trip_id}/street-smart/traps")
+def street_traps(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    return build_traps(trip)
+
+
+@router.post("/{trip_id}/street-smart/traps/enrich")
+def street_traps_enrich(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    _require_llm_key()
+    _require_llm_budget(current_user)
+    base = build_traps(trip)
+    try:
+        engine = get_engine()
+        traps = engine.enrich_traps(base["destination"], build_survival(trip)["region_label"])
+        if traps:
+            base["traps"] = traps
+            base["source"] = "llm"
+    except LLMGenerationError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+    return base
+
+
+@router.get("/{trip_id}/street-smart/taste")
+def street_taste(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    return build_taste(trip)
+
+
+@router.get("/{trip_id}/street-smart/arrival")
+def street_arrival(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    return build_arrival(trip)
+
+
+@router.post("/{trip_id}/street-smart/quest")
+def street_quest(
+    trip_id: int,
+    payload: QuestRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    fallback = build_quest_fallback(trip, payload.day_index)
+    if not settings.llm_api_key.strip():
+        return fallback
+    try:
+        _require_llm_budget(current_user)
+        arts = {a.phase: a.content for a in trip.artifacts}
+        days = parse_itinerary_days(arts.get("itinerary", ""), start_date=trip.start_date)
+        day = days[payload.day_index] if 0 <= payload.day_index < len(days) else None
+        places = [s["place"] for s in (day or {}).get("slots") or []]
+        engine = get_engine()
+        missions = engine.generate_day_quest(
+            fallback["destination"],
+            fallback["day_title"],
+            places,
+        )
+        if len(missions) >= 3:
+            fallback["missions"] = [
+                {"id": i, "text": m} for i, m in enumerate(missions[:3])
+            ]
+            fallback["source"] = "llm"
+    except LLMGenerationError:
+        pass
+    except HTTPException:
+        # rate limit — return rules
+        pass
+    return fallback
+
+
+# ——— Trip OS: modes, briefing, journal ———
+
+
+@router.get("/{trip_id}/os/window")
+def trip_os_window(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    window = trip_day_window(trip)
+    window.pop("days", None)
+    return window
+
+
+@router.get("/{trip_id}/os/briefing")
+def trip_os_briefing(
+    trip_id: int,
+    day_index: int | None = Query(default=None, ge=0, le=60),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    return build_morning_briefing(trip, day_index)
+
+
+@router.get("/{trip_id}/journal", response_model=list[JournalOut])
+def list_journal(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    rows = db.scalars(
+        select(JournalEntry)
+        .where(JournalEntry.trip_id == trip.id)
+        .order_by(JournalEntry.day_index, JournalEntry.id)
+    ).all()
+    return [_journal_out(r) for r in rows]
+
+
+@router.post("/{trip_id}/journal", response_model=JournalOut, status_code=status.HTTP_201_CREATED)
+def create_journal(
+    trip_id: int,
+    payload: JournalCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    if payload.kind == "evening":
+        existing = db.scalars(
+            select(JournalEntry).where(
+                JournalEntry.trip_id == trip.id,
+                JournalEntry.day_index == payload.day_index,
+                JournalEntry.kind == "evening",
+            )
+        ).first()
+        if existing:
+            existing.mood = payload.mood if payload.mood in MOODS else (payload.mood or existing.mood)
+            existing.content = payload.content
+            existing.done_slots = serialize_done_slots(payload.done_slots)
+            db.commit()
+            db.refresh(existing)
+            return _journal_out(existing)
+
+    entry = JournalEntry(
+        trip_id=trip.id,
+        day_index=payload.day_index,
+        kind=payload.kind,
+        mood=payload.mood if payload.mood in MOODS else (payload.mood or ""),
+        content=payload.content,
+        done_slots=serialize_done_slots(payload.done_slots),
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return _journal_out(entry)
+
+
+@router.patch("/{trip_id}/journal/{entry_id}", response_model=JournalOut)
+def update_journal(
+    trip_id: int,
+    entry_id: int,
+    payload: JournalUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    entry = db.get(JournalEntry, entry_id)
+    if entry is None or entry.trip_id != trip.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Journal entry not found")
+    if payload.mood is not None:
+        entry.mood = payload.mood
+    if payload.content is not None:
+        entry.content = payload.content
+    if payload.done_slots is not None:
+        entry.done_slots = serialize_done_slots(payload.done_slots)
+    db.commit()
+    db.refresh(entry)
+    return _journal_out(entry)
+
+
+@router.delete("/{trip_id}/journal/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_journal(
+    trip_id: int,
+    entry_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    entry = db.get(JournalEntry, entry_id)
+    if entry is None or entry.trip_id != trip.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Journal entry not found")
+    db.delete(entry)
+    db.commit()
+    return None
+
+
+@router.post("/{trip_id}/os/evening", response_model=JournalOut)
+def evening_checkin(
+    trip_id: int,
+    payload: EveningCheckin,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    mood = payload.mood if payload.mood in MOODS else "ok"
+    existing = db.scalars(
+        select(JournalEntry).where(
+            JournalEntry.trip_id == trip.id,
+            JournalEntry.day_index == payload.day_index,
+            JournalEntry.kind == "evening",
+        )
+    ).first()
+    if existing:
+        existing.mood = mood
+        existing.content = payload.content
+        existing.done_slots = serialize_done_slots(payload.done_slots)
+        db.commit()
+        db.refresh(existing)
+        return _journal_out(existing)
+
+    entry = JournalEntry(
+        trip_id=trip.id,
+        day_index=payload.day_index,
+        kind="evening",
+        mood=mood,
+        content=payload.content,
+        done_slots=serialize_done_slots(payload.done_slots),
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return _journal_out(entry)

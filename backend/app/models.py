@@ -53,6 +53,9 @@ class Trip(Base):
     votes: Mapped[list["Vote"]] = relationship(
         back_populates="trip", cascade="all, delete-orphan", order_by="Vote.id"
     )
+    journal: Mapped[list["JournalEntry"]] = relationship(
+        back_populates="trip", cascade="all, delete-orphan", order_by="JournalEntry.id"
+    )
 
 
 class Artifact(Base):
@@ -111,3 +114,23 @@ class Vote(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     trip: Mapped[Trip] = relationship(back_populates="votes")
+
+
+class JournalEntry(Base):
+    """Дневник / вечерний чекин / заметка по дню поездки."""
+
+    __tablename__ = "journal_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trip_id: Mapped[int] = mapped_column(ForeignKey("trips.id"), index=True, nullable=False)
+    day_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, default="note")  # note|evening
+    mood: Mapped[str] = mapped_column(String(32), default="")
+    content: Mapped[str] = mapped_column(Text, default="")
+    done_slots: Mapped[str] = mapped_column(Text, default="")  # JSON list of slot_key
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+    trip: Mapped[Trip] = relationship(back_populates="journal")

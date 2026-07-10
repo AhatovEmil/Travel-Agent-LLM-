@@ -80,6 +80,36 @@ export const api = {
   getVotes: (id) => request(`/api/trips/${id}/votes`),
   rebuildFromVotes: (id) => request(`/api/trips/${id}/rebuild-from-votes`, { method: 'POST' }),
   recoverTrip: (id) => request(`/api/trips/${id}/recover`, { method: 'POST' }),
+  streetSurvival: (id) => request(`/api/trips/${id}/street-smart/survival`),
+  streetSurvivalEnrich: (id) =>
+    request(`/api/trips/${id}/street-smart/survival/enrich`, { method: 'POST' }),
+  streetTraps: (id) => request(`/api/trips/${id}/street-smart/traps`),
+  streetTrapsEnrich: (id) =>
+    request(`/api/trips/${id}/street-smart/traps/enrich`, { method: 'POST' }),
+  streetTaste: (id) => request(`/api/trips/${id}/street-smart/taste`),
+  streetArrival: (id) => request(`/api/trips/${id}/street-smart/arrival`),
+  streetQuest: (id, dayIndex) =>
+    request(`/api/trips/${id}/street-smart/quest`, {
+      method: 'POST',
+      body: JSON.stringify({ day_index: dayIndex }),
+    }),
+  tripWindow: (id) => request(`/api/trips/${id}/os/window`),
+  tripBriefing: (id, dayIndex) => {
+    const q = dayIndex != null ? `?day_index=${dayIndex}` : ''
+    return request(`/api/trips/${id}/os/briefing${q}`)
+  },
+  listJournal: (id) => request(`/api/trips/${id}/journal`),
+  createJournal: (id, payload) =>
+    request(`/api/trips/${id}/journal`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateJournal: (id, entryId, payload) =>
+    request(`/api/trips/${id}/journal/${entryId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  deleteJournal: (id, entryId) =>
+    request(`/api/trips/${id}/journal/${entryId}`, { method: 'DELETE' }),
+  eveningCheckin: (id, payload) =>
+    request(`/api/trips/${id}/os/evening`, { method: 'POST', body: JSON.stringify(payload) }),
   getShared: (token) => request(`/api/share/${token}`),
   castVote: (token, payload) =>
     request(`/api/share/${token}/votes`, {

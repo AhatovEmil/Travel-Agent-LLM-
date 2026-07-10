@@ -4,8 +4,10 @@ import { coverForText } from '../covers.js'
 import LinkButtons, { FeasibilityBadge } from '../LinkButtons.jsx'
 import Markdown from '../Markdown.jsx'
 import { announceTripReady, ensureNotifyPermission } from '../notify.js'
+import StreetSmart, { DayQuest } from '../StreetSmart.jsx'
 import { toast } from '../Toast.jsx'
 import TripMap from '../TripMap.jsx'
+import { EveningCheckin, MemoriesJournal, MorningBriefing, TripModeBar } from '../TripOS.jsx'
 import { api, downloadTripFile } from '../api.js'
 
 const PHASES = [
@@ -70,11 +72,46 @@ export default function Trip({ tripId, onBack }) {
   const [liveCoords, setLiveCoords] = useState({ lat: null, lon: null })
   const [shareMsg, setShareMsg] = useState('')
   const [shareUrl, setShareUrl] = useState('')
+  const [mapDay, setMapDay] = useState(0)
+  const [tripMode, setTripMode] = useState('plan')
+  const [modeHint, setModeHint] = useState(null)
+  const [journal, setJournal] = useState([])
+  const modeBootstrapped = useRef(false)
   const prevStatus = useRef(null)
 
   useEffect(() => {
     ensureNotifyPermission()
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const w = await api.tripWindow(tripId)
+        if (cancelled) return
+        setModeHint(w.phase)
+        if (!modeBootstrapped.current) {
+          modeBootstrapped.current = true
+          setTripMode(w.phase === 'onsite' ? 'onsite' : w.phase === 'memories' ? 'memories' : 'plan')
+        }
+        if (w.day_index != null) {
+          setOpenDay(w.day_index)
+          setMapDay(w.day_index)
+        }
+      } catch {
+        /* window optional until itinerary exists */
+      }
+      try {
+        const j = await api.listJournal(tripId)
+        if (!cancelled) setJournal(j)
+      } catch {
+        if (!cancelled) setJournal([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tripId, trip?.status])
 
   useEffect(() => {
     let timer
@@ -180,6 +217,19 @@ export default function Trip({ tripId, onBack }) {
   const tip = GEN_TIPS[tripId % GEN_TIPS.length]
   const cover = coverForText(trip.name, trip.brief)
   const latestLive = artifacts[artifacts.length - 1]
+  const mapDaySafe = days?.length ? Math.min(mapDay, days.length - 1) : 0
+  const mapRoute =
+    days?.[mapDaySafe]?.slots?.filter((s) => s.lat != null && s.lon != null) || []
+  const showModes = Boolean(idle && itinerary)
+  const mode = showModes ? tripMode : 'plan'
+  const focusDayIdx = days?.length ? Math.min(openDay < 0 ? mapDaySafe : openDay, days.length - 1) : 0
+  const focusDay = days?.[focusDayIdx]
+  const eveningEntry = journal.find((j) => j.kind === 'evening' && j.day_index === focusDayIdx)
+
+  const selectDay = (idx) => {
+    setMapDay(idx)
+    setOpenDay(idx)
+  }
 
   const voteCounts = (slotKey) => {
     const list = votes.filter((v) => v.slot_key === slotKey)
@@ -383,6 +433,34 @@ export default function Trip({ tripId, onBack }) {
       <p className="muted notice">
         Черновик от ИИ: адреса, часы работы и цены ориентировочные — проверяйте перед поездкой.
       </p>
+
+      {idle && itinerary && (
+        <TripModeBar mode={tripMode} onChange={setTripMode} phaseHint={modeHint} />
+      )}
+
+      {mode === 'onsite' && idle && itinerary && (
+        <>
+          <MorningBriefing tripId={tripId} dayIndex={focusDayIdx} />
+          <EveningCheckin
+            tripId={tripId}
+            dayIndex={focusDayIdx}
+            slots={focusDay?.slots || []}
+            existing={eveningEntry}
+            onSaved={async () => {
+              try {
+                setJournal(await api.listJournal(tripId))
+              } catch {
+                /* ignore */
+              }
+            }}
+          />
+        </>
+      )}
+
+      {mode === 'memories' && idle && itinerary && (
+        <MemoriesJournal tripId={tripId} days={days || []} />
+      )}
+
       {trip.status === 'running' && (
         <div className="notice-bar">
           Агент работает… Если зависло после перезапуска сервера —{' '}
@@ -493,7 +571,7 @@ export default function Trip({ tripId, onBack }) {
         </div>
       )}
 
-      {extras?.links && (
+      {mode === 'plan' && extras?.links && (
         <section className="booking-section">
           <div className="section-title">
             <h2>Бронирование</h2>
@@ -511,7 +589,7 @@ export default function Trip({ tripId, onBack }) {
         </section>
       )}
 
-      {itinerary && idle && (
+      {mode === 'onsite' && itinerary && idle && (
         <section className="live-panel">
           <div className="section-title">
             <h2>Я на месте</h2>
@@ -567,7 +645,7 @@ export default function Trip({ tripId, onBack }) {
         </section>
       )}
 
-      {extras?.weather?.length > 0 && (
+      {(mode === 'onsite' || mode === 'plan') && extras?.weather?.length > 0 && (
         <section className="weather-strip">
           <h2>Погода (ориентир)</h2>
           <p className="muted small">
@@ -576,29 +654,68 @@ export default function Trip({ tripId, onBack }) {
             дн.
           </p>
           <div className="weather-row">
-            {extras.weather.map((w) => (
-              <div key={w.date} className="weather-card">
-                <div className="weather-date">{w.date.slice(5)}</div>
-                <div className="weather-label">{w.label}</div>
-                <div className="weather-temp">
-                  {w.temp_min}° … {w.temp_max}°
-                </div>
-              </div>
-            ))}
+            {extras.weather.map((w) => {
+              const dayIdx = days?.findIndex((d) => d.date === w.date) ?? -1
+              const active = dayIdx >= 0 && dayIdx === mapDaySafe
+              return (
+                <button
+                  key={w.date}
+                  type="button"
+                  className={`weather-card ${active ? 'active' : ''} ${dayIdx >= 0 ? 'clickable' : ''}`}
+                  onClick={() => {
+                    if (dayIdx >= 0) selectDay(dayIdx)
+                  }}
+                  disabled={dayIdx < 0}
+                >
+                  <div className="weather-date">{w.date.slice(5)}</div>
+                  <div className="weather-label">{w.label}</div>
+                  <div className="weather-temp">
+                    {w.temp_min}° … {w.temp_max}°
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </section>
       )}
 
-      {extras?.center && (
-        <section>
+      {(mode === 'onsite' || mode === 'plan') && extras?.center && (
+        <section className="map-section">
           <div className="section-title">
-            <h2>Карта</h2>
+            <h2>Карта дня</h2>
             <span className="muted small">{extras.destination}</span>
           </div>
-          <TripMap center={extras.center} places={extras.places} />
+          {days?.length > 0 && (
+            <div className="map-day-chips" role="tablist" aria-label="День на карте">
+              {days.map((day, idx) => (
+                <button
+                  key={`map-day-${idx}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={mapDaySafe === idx}
+                  className={`chip ${mapDaySafe === idx ? 'selected' : ''}`}
+                  onClick={() => selectDay(idx)}
+                >
+                  День {idx + 1}
+                  {day.weather ? ` · ${day.weather.temp_max}°` : ''}
+                </button>
+              ))}
+            </div>
+          )}
+          <TripMap center={extras.center} places={extras.places} route={mapRoute} />
+          {days?.length > 0 && (
+            <p className="muted small map-hint">
+              {mapRoute.length > 1
+                ? `Маршрут дня ${mapDaySafe + 1}: ${mapRoute.length} точек на карте`
+                : mapRoute.length === 1
+                  ? `Одна точка с координатами в дне ${mapDaySafe + 1}`
+                  : 'Для этого дня координат слотов пока нет — показан центр направления'}
+            </p>
+          )}
         </section>
       )}
 
+      {mode === 'plan' && (
       <section>
         <div className="section-title">
           <h2>План по дням</h2>
@@ -630,35 +747,57 @@ export default function Trip({ tripId, onBack }) {
         {itinerary && days && (
           <div className="day-cards">
             {days.map((day, idx) => (
-              <div key={`${day.title}-${idx}`} className="day-card">
+              <div
+                key={`${day.title}-${idx}`}
+                className={`day-card ${openDay === idx ? 'open' : ''} ${mapDaySafe === idx ? 'on-map' : ''}`}
+              >
                 <button
-                  className="row expander"
-                  onClick={() => setOpenDay(openDay === idx ? -1 : idx)}
+                  className="row expander day-expander"
+                  onClick={() => {
+                    if (openDay === idx) setOpenDay(-1)
+                    else selectDay(idx)
+                  }}
                 >
-                  <strong>
-                    {day.title}
-                    {day.date ? ` · ${day.date}` : ''}
-                  </strong>
-                  <span>{openDay === idx ? '▾' : '▸'}</span>
+                  <div className="day-expander-copy">
+                    <strong>
+                      {day.title}
+                      {day.date ? ` · ${day.date}` : ''}
+                    </strong>
+                    {day.weather && (
+                      <span className="day-weather-badge" title="Прогноз на день">
+                        <em>{day.weather.label}</em>
+                        <span>
+                          {day.weather.temp_min}°…{day.weather.temp_max}°
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  <span className="day-expander-chevron">{openDay === idx ? '▾' : '▸'}</span>
                 </button>
                 {openDay === idx && (
                   <div className="day-body">
                     {day.weather && (
-                      <p className="muted small">
-                        {day.weather.label}, {day.weather.temp_min}°…{day.weather.temp_max}°
-                      </p>
+                      <div className="day-weather-panel">
+                        <strong>{day.weather.label}</strong>
+                        <span>
+                          {day.weather.temp_min}° … {day.weather.temp_max}°
+                        </span>
+                        <em className="muted small">Open-Meteo, ориентир</em>
+                      </div>
                     )}
+                    <DayQuest tripId={tripId} dayIndex={idx} dayTitle={day.title} />
                     {day.slots?.length > 0 ? (
                       <div className="slot-list">
-                        {day.slots.map((slot) => {
+                        {day.slots.map((slot, slotIdx) => {
                           const counts = voteCounts(slot.slot_key)
                           return (
                             <div key={slot.slot_key} className="slot-card">
-                              <div className="row">
+                              <div className="row slot-card-head">
+                                <span className="slot-num">{slotIdx + 1}</span>
                                 <strong>
                                   {slot.start}–{slot.end}
                                 </strong>
-                                <span>{slot.place}</span>
+                                <span className="slot-place">{slot.place}</span>
                               </div>
                               {slot.body && <Markdown>{slot.body}</Markdown>}
                               <LinkButtons links={slot.links} compact />
@@ -693,8 +832,11 @@ export default function Trip({ tripId, onBack }) {
           </div>
         )}
       </section>
+      )}
 
-      {votes.length > 0 && idle && (
+      {mode === 'onsite' && idle && itinerary && <StreetSmart tripId={tripId} />}
+
+      {mode === 'plan' && votes.length > 0 && idle && (
         <section className="chat-panel">
           <div className="section-title">
             <h2>Голоса друзей</h2>
@@ -709,7 +851,7 @@ export default function Trip({ tripId, onBack }) {
         </section>
       )}
 
-      {itinerary && (
+      {mode === 'plan' && itinerary && (
         <section className="chat-panel">
           <h2>Изменить план</h2>
           <p className="muted small">
@@ -733,7 +875,7 @@ export default function Trip({ tripId, onBack }) {
         </section>
       )}
 
-      {idle && versions.length > 0 && (
+      {mode === 'plan' && idle && versions.length > 0 && (
         <section className="history-panel">
           <div className="section-title">
             <h2>История плана</h2>
@@ -777,7 +919,7 @@ export default function Trip({ tripId, onBack }) {
         </section>
       )}
 
-      {idle && (
+      {mode === 'plan' && idle && (
         <section>
           <h2>Остальные документы</h2>
           {otherArtifacts.length === 0 && (

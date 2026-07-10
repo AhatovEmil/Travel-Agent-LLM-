@@ -277,6 +277,71 @@ class TravelEngine:
         self._context["itinerary"] = text
         return text
 
+    def enrich_survival_phrases(self, destination: str, region_label: str) -> list[dict]:
+        from .street_smart import parse_json_list
+
+        raw = self._complete(
+            f"Направление: {destination} ({region_label}).\n"
+            "Верни ТОЛЬКО JSON вида:\n"
+            '{"phrases":[{"local":"...","latin":"...","ru":"..."}, ...]}\n'
+            "Ровно 8 живых уличных фраз на местном языке с латиницей и русским смыслом. "
+            "Без markdown и пояснений.",
+            temperature=0.6,
+        )
+        items = parse_json_list(raw, "phrases") or []
+        cleaned = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            local = str(item.get("local") or "").strip()
+            latin = str(item.get("latin") or "").strip()
+            ru = str(item.get("ru") or "").strip()
+            if local and ru:
+                cleaned.append({"local": local, "latin": latin, "ru": ru})
+        return cleaned[:8]
+
+    def enrich_traps(self, destination: str, region_label: str) -> list[dict]:
+        from .street_smart import parse_json_list
+
+        raw = self._complete(
+            f"Направление: {destination} ({region_label}).\n"
+            "Верни ТОЛЬКО JSON:\n"
+            '{"traps":[{"title":"...","how":"..."}, ...]}\n'
+            "5–7 типичных туристических разводов/ловушек и как отшить коротко, дерзко, по делу. "
+            "На русском. Без markdown.",
+            temperature=0.55,
+        )
+        items = parse_json_list(raw, "traps") or []
+        cleaned = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or "").strip()
+            how = str(item.get("how") or "").strip()
+            if title and how:
+                cleaned.append({"title": title, "how": how})
+        return cleaned[:7]
+
+    def generate_day_quest(
+        self,
+        destination: str,
+        day_title: str,
+        places: list[str],
+    ) -> list[str]:
+        from .street_smart import parse_json_list
+
+        place_line = ", ".join(places[:6]) if places else "места дня из плана"
+        raw = self._complete(
+            f"Город: {destination}. День: {day_title}. Точки: {place_line}.\n"
+            "Придумай ровно 3 микромиссии для туриста «не выглядеть туристом». "
+            "Коротко, игриво, выполнимо за день. Верни ТОЛЬКО JSON:\n"
+            '{"missions":["...","...","..."]}',
+            temperature=0.7,
+        )
+        items = parse_json_list(raw, "missions") or []
+        texts = [str(x).strip() for x in items if str(x).strip()]
+        return texts[:3]
+
 
 def get_engine() -> TravelEngine:
     if not settings.llm_api_key.strip():

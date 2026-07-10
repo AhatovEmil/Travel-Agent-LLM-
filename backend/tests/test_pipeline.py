@@ -1,3 +1,4 @@
+import re
 import time
 
 from app.services.engine import LLMGenerationError, TravelEngine
@@ -141,7 +142,51 @@ def test_export_pdf(client, auth_headers, monkeypatch):
     response = client.get(f"/api/trips/{trip_id}/export.pdf", headers=auth_headers)
     assert response.status_code == 200, response.text
     assert response.headers["content-type"].startswith("application/pdf")
-    assert response.content[:4] == b"%PDF"
+    raw = response.content
+    assert raw[:4] == b"%PDF"
+    # Cover + TOC + days + budget + checklist → several pages, not one wall of text
+    match = re.search(rb"/Count\s+(\d+)", raw)
+    assert match is not None
+    assert int(match.group(1)) >= 3
+
+
+def test_build_trip_pdf_uses_slots(monkeypatch):
+    from datetime import date
+    from types import SimpleNamespace
+
+    from app.services import export as export_mod
+
+    calls: list[tuple] = []
+    real_slot = export_mod.TripPDF.slot_row
+
+    def spy_slot(self, start, end, place, body, **kwargs):
+        calls.append((start, end, place))
+        return real_slot(self, start, end, place, body, **kwargs)
+
+    monkeypatch.setattr(export_mod.TripPDF, "slot_row", spy_slot)
+
+    trip = SimpleNamespace(
+        name="Батуми, 2 дн.",
+        brief="Направление: Батуми. Длительность: 2 дн. Дата начала: 2026-07-12.",
+        start_date=date(2026, 7, 12),
+        artifacts=[
+            SimpleNamespace(
+                phase="itinerary",
+                title="Itinerary",
+                content=(
+                    "## День 1 — 2026-07-12 — обзор\n\n"
+                    "### 09:00–11:00 — Батумский бульвар\nПрогулка.\n\n"
+                    "### 11:30–13:00 — Кафе\nОбед.\n"
+                ),
+            ),
+            SimpleNamespace(phase="budget", title="Budget", content="# Budget\n\n- Итого ~50 000 ₽"),
+            SimpleNamespace(phase="checklist", title="Checklist", content="- [ ] Паспорт"),
+        ],
+    )
+    data = export_mod.build_trip_pdf(trip)
+    assert data[:4] == b"%PDF"
+    assert ("09:00", "11:00", "Батумский бульвар") in calls
+    assert ("11:30", "13:00", "Кафе") in calls
 
 
 def test_ask_question_saves_history(client, auth_headers, monkeypatch):

@@ -2,9 +2,21 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.db
+*.sqlite3
+
+# Secrets — never commit real keys
 .env
+.env.*
+!.env.example
+backend/.env
+**/.env
+
 .geocode_cache.json
 node_modules/
 dist/
 .vscode/
 .idea/
+*.pem
+*.key
+id_rsa
+id_rsa.pub

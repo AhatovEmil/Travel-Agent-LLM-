@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -29,6 +29,7 @@ class UserOut(BaseModel):
 class TripCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     brief: str = Field(min_length=10, max_length=10000)
+    start_date: date | None = None
 
 
 class TripOut(BaseModel):
@@ -37,6 +38,8 @@ class TripOut(BaseModel):
     id: int
     name: str
     brief: str
+    start_date: date | None = None
+    share_token: str | None = None
     status: str
     current_phase: str
     error: str
@@ -74,3 +77,31 @@ class ChatMessageOut(BaseModel):
 class AskResponse(BaseModel):
     reply: str
     messages: list[ChatMessageOut]
+
+
+class LiveAdjustRequest(BaseModel):
+    reason: str = Field(pattern="^(late|rain|custom)$")
+    message: str = Field(default="", max_length=1000)
+
+
+class ShareResponse(BaseModel):
+    share_token: str
+    share_path: str
+
+
+class VoteRequest(BaseModel):
+    voter: str = Field(min_length=1, max_length=40)
+    day_index: int = Field(ge=0, le=30)
+    slot_key: str = Field(min_length=1, max_length=160)
+    value: str = Field(pattern="^(want|skip)$")
+
+
+class VoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    day_index: int
+    slot_key: str
+    voter: str
+    value: str
+    created_at: datetime

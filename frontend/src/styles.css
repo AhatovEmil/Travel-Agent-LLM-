@@ -764,6 +764,71 @@ button:active:not(:disabled) {
   margin: 0 12px;
 }
 
+.link-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.link-btns a {
+  text-decoration: none;
+}
+
+.slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 4px 12px;
+}
+
+.slot-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.slot-card .markdown {
+  margin: 8px 0;
+  padding: 8px 10px;
+}
+
+.feasibility {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.feasibility.feasible {
+  color: var(--success);
+  background: rgba(31, 138, 91, 0.1);
+}
+
+.feasibility.tight {
+  color: #9a6b10;
+  background: rgba(180, 120, 20, 0.12);
+}
+
+.feasibility.impossible {
+  color: var(--danger);
+  background: rgba(194, 59, 59, 0.1);
+}
+
+.live-panel {
+  margin: 8px 0 24px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.transfer-line {
+  margin: 6px 0 0;
+}
+
 @media (max-width: 640px) {
   .topbar {
     padding: 12px 16px;

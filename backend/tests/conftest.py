@@ -9,14 +9,14 @@ os.environ["LLM_API_KEY"] = "test-key-for-pytest"
 import pytest
 from fastapi.testclient import TestClient
 
-from app.database import Base, engine
+from app.database import Base, engine, ensure_schema
 from app.main import app
 
 
 @pytest.fixture(autouse=True)
 def clean_db():
     Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    ensure_schema()
     yield
 
 

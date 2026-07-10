@@ -9,7 +9,6 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# Упрощённые коды Open-Meteo → текст
 _WEATHER_LABELS = {
     0: "Ясно",
     1: "В основном ясно",
@@ -41,10 +40,15 @@ def _label(code: int) -> str:
     return "Облачно"
 
 
-def fetch_weather(lat: float, lon: float, days: int = 5) -> list[dict]:
+def fetch_weather(
+    lat: float,
+    lon: float,
+    days: int = 5,
+    start: date | None = None,
+) -> list[dict]:
     days = max(1, min(int(days), 16))
-    start = date.today()
-    end = start + timedelta(days=days - 1)
+    start_date = start or date.today()
+    end = start_date + timedelta(days=days - 1)
     try:
         response = httpx.get(
             "https://api.open-meteo.com/v1/forecast",
@@ -53,7 +57,7 @@ def fetch_weather(lat: float, lon: float, days: int = 5) -> list[dict]:
                 "longitude": lon,
                 "daily": "weathercode,temperature_2m_max,temperature_2m_min",
                 "timezone": "auto",
-                "start_date": start.isoformat(),
+                "start_date": start_date.isoformat(),
                 "end_date": end.isoformat(),
             },
             timeout=20,

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+import secrets
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,14 +12,24 @@ from ..schemas import (
     ArtifactOut,
     ChatMessageOut,
     ChatRequest,
+    LiveAdjustRequest,
     PhaseRerunRequest,
+    ShareResponse,
     TripCreate,
     TripOut,
+    VoteOut,
 )
 from ..services.engine import LLMGenerationError, get_engine
 from ..services.export import build_trip_markdown, build_trip_pdf
-from ..services.extras import build_trip_extras
-from ..services.pipeline import PHASES, run_chat_revise, run_pipeline, run_single_phase
+from ..services.extras import build_live_status, build_trip_extras
+from ..services.pipeline import (
+    PHASES,
+    run_chat_revise,
+    run_live_adjust,
+    run_pipeline,
+    run_rebuild_from_votes,
+    run_single_phase,
+)
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
 
@@ -60,7 +72,12 @@ def create_trip(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    trip = Trip(owner_id=current_user.id, name=payload.name, brief=payload.brief)
+    trip = Trip(
+        owner_id=current_user.id,
+        name=payload.name,
+        brief=payload.brief,
+        start_date=payload.start_date,
+    )
     db.add(trip)
     db.commit()
     db.refresh(trip)
@@ -235,6 +252,97 @@ def trip_extras(
 ):
     trip = _get_owned_trip(trip_id, current_user, db)
     return build_trip_extras(trip)
+
+
+@router.get("/{trip_id}/live")
+def trip_live(
+    trip_id: int,
+    lat: float | None = Query(default=None),
+    lon: float | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    return build_live_status(trip, lat, lon)
+
+
+@router.post(
+    "/{trip_id}/live/adjust",
+    response_model=TripOut,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def trip_live_adjust(
+    trip_id: int,
+    payload: LiveAdjustRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    _require_idle(trip)
+    _require_llm_key()
+    if not any(a.phase == "itinerary" for a in trip.artifacts):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Нет плана (itinerary)")
+    trip.status = "running"
+    trip.current_phase = "itinerary"
+    trip.error = ""
+    db.commit()
+    db.refresh(trip)
+    background_tasks.add_task(
+        run_live_adjust, trip.id, payload.reason, payload.message.strip()
+    )
+    return trip
+
+
+@router.post("/{trip_id}/share", response_model=ShareResponse)
+def enable_share(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    trip.share_token = secrets.token_urlsafe(16)
+    db.commit()
+    db.refresh(trip)
+    return ShareResponse(
+        share_token=trip.share_token,
+        share_path=f"#/share/{trip.share_token}",
+    )
+
+
+@router.get("/{trip_id}/votes", response_model=list[VoteOut])
+def list_votes(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    return trip.votes
+
+
+@router.post(
+    "/{trip_id}/rebuild-from-votes",
+    response_model=TripOut,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def rebuild_from_votes(
+    trip_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trip = _get_owned_trip(trip_id, current_user, db)
+    _require_idle(trip)
+    _require_llm_key()
+    if not trip.votes:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Нет голосов")
+    trip.status = "running"
+    trip.current_phase = "itinerary"
+    trip.error = ""
+    db.commit()
+    db.refresh(trip)
+    background_tasks.add_task(run_rebuild_from_votes, trip.id)
+    return trip
 
 
 @router.get("/{trip_id}/export")

@@ -35,8 +35,11 @@ export const api = {
     request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   me: () => request('/api/auth/me'),
   listTrips: () => request('/api/trips'),
-  createTrip: (name, brief) =>
-    request('/api/trips', { method: 'POST', body: JSON.stringify({ name, brief }) }),
+  createTrip: (name, brief, startDate) =>
+    request('/api/trips', {
+      method: 'POST',
+      body: JSON.stringify({ name, brief, start_date: startDate || null }),
+    }),
   getTrip: (id) => request(`/api/trips/${id}`),
   deleteTrip: (id) => request(`/api/trips/${id}`, { method: 'DELETE' }),
   runTrip: (id) => request(`/api/trips/${id}/run`, { method: 'POST' }),
@@ -58,6 +61,27 @@ export const api = {
   getMessages: (id) => request(`/api/trips/${id}/messages`),
   getArtifacts: (id) => request(`/api/trips/${id}/artifacts`),
   getExtras: (id) => request(`/api/trips/${id}/extras`),
+  getLive: (id, lat, lon) => {
+    const q = new URLSearchParams()
+    if (lat != null) q.set('lat', String(lat))
+    if (lon != null) q.set('lon', String(lon))
+    const qs = q.toString()
+    return request(`/api/trips/${id}/live${qs ? `?${qs}` : ''}`)
+  },
+  liveAdjust: (id, reason, message = '') =>
+    request(`/api/trips/${id}/live/adjust`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, message }),
+    }),
+  enableShare: (id) => request(`/api/trips/${id}/share`, { method: 'POST' }),
+  getVotes: (id) => request(`/api/trips/${id}/votes`),
+  rebuildFromVotes: (id) => request(`/api/trips/${id}/rebuild-from-votes`, { method: 'POST' }),
+  getShared: (token) => request(`/api/share/${token}`),
+  castVote: (token, payload) =>
+    request(`/api/share/${token}/votes`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 }
 
 export async function downloadTripFile(id, name, format = 'md') {
@@ -85,7 +109,6 @@ export async function downloadTripFile(id, name, format = 'md') {
   URL.revokeObjectURL(url)
 }
 
-/** @deprecated use downloadTripFile */
 export async function downloadTripMarkdown(id, name) {
   return downloadTripFile(id, name, 'md')
 }

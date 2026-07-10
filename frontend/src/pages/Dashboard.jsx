@@ -21,11 +21,12 @@ const INTERESTS = [
 
 const STEPS = ['Куда', 'Срок', 'Бюджет', 'Интересы']
 
-function buildBrief({ destination, days, budget, interests, notes, travelers }) {
+function buildBrief({ destination, days, budget, interests, notes, travelers, startDate }) {
   const parts = [
     `Направление: ${destination.trim()}.`,
     `Длительность: ${days} дн.`,
   ]
+  if (startDate) parts.push(`Дата начала: ${startDate}.`)
   if (budget.trim()) parts.push(`Бюджет: ${budget.trim()}.`)
   if (travelers.trim()) parts.push(`Путешественники: ${travelers.trim()}.`)
   if (interests.length) parts.push(`Интересы: ${interests.join(', ')}.`)
@@ -33,11 +34,18 @@ function buildBrief({ destination, days, budget, interests, notes, travelers }) 
   return parts.join(' ')
 }
 
+function defaultStartDate() {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
 export default function Dashboard({ onOpen }) {
   const [trips, setTrips] = useState([])
   const [step, setStep] = useState(0)
   const [destination, setDestination] = useState('')
   const [days, setDays] = useState('5')
+  const [startDate, setStartDate] = useState(defaultStartDate)
   const [budget, setBudget] = useState('')
   const [travelers, setTravelers] = useState('2 взрослых')
   const [interests, setInterests] = useState([])
@@ -61,7 +69,7 @@ export default function Dashboard({ onOpen }) {
 
   const canNext = () => {
     if (step === 0) return destination.trim().length >= 2
-    if (step === 1) return Number(days) >= 1 && Number(days) <= 30
+    if (step === 1) return Number(days) >= 1 && Number(days) <= 30 && Boolean(startDate)
     if (step === 2) return true
     return interests.length > 0 || notes.trim().length >= 3
   }
@@ -74,12 +82,21 @@ export default function Dashboard({ onOpen }) {
     }
     setBusy(true)
     try {
-      const brief = buildBrief({ destination, days, budget, interests, notes, travelers })
+      const brief = buildBrief({
+        destination,
+        days,
+        budget,
+        interests,
+        notes,
+        travelers,
+        startDate,
+      })
       const name = `${destination.trim()}, ${days} дн.`
-      const trip = await api.createTrip(name.slice(0, 255), brief)
+      const trip = await api.createTrip(name.slice(0, 255), brief, startDate)
       await api.runTrip(trip.id)
       setDestination('')
       setDays('5')
+      setStartDate(defaultStartDate())
       setBudget('')
       setTravelers('2 взрослых')
       setInterests([])
@@ -172,10 +189,13 @@ export default function Dashboard({ onOpen }) {
                 />
               </div>
               <div>
-                <label className="field-label">Подсказка</label>
-                <p className="muted" style={{ margin: '10px 0 0' }}>
-                  Обычно хватает 3–7 дней для одного города.
-                </p>
+                <label className="field-label">Дата начала</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  required
+                />
               </div>
             </div>
           )}

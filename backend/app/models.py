@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -30,6 +30,8 @@ class Trip(Base):
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     brief: Mapped[str] = mapped_column(Text, nullable=False)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    share_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="draft")  # draft|running|completed|failed
     current_phase: Mapped[str] = mapped_column(String(32), default="")
     error: Mapped[str] = mapped_column(Text, default="")
@@ -44,6 +46,9 @@ class Trip(Base):
     )
     messages: Mapped[list["ChatMessage"]] = relationship(
         back_populates="trip", cascade="all, delete-orphan", order_by="ChatMessage.id"
+    )
+    votes: Mapped[list["Vote"]] = relationship(
+        back_populates="trip", cascade="all, delete-orphan", order_by="Vote.id"
     )
 
 
@@ -70,3 +75,20 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     trip: Mapped[Trip] = relationship(back_populates="messages")
+
+
+class Vote(Base):
+    __tablename__ = "votes"
+    __table_args__ = (
+        UniqueConstraint("trip_id", "slot_key", "voter", name="uq_vote_trip_slot_voter"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trip_id: Mapped[int] = mapped_column(ForeignKey("trips.id"), index=True, nullable=False)
+    day_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    slot_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    voter: Mapped[str] = mapped_column(String(40), nullable=False)
+    value: Mapped[str] = mapped_column(String(16), nullable=False)  # want | skip
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    trip: Mapped[Trip] = relationship(back_populates="votes")

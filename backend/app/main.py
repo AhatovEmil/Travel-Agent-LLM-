@@ -2,10 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .database import Base, engine
-from .routers import auth, trips
+from .database import ensure_schema
+from .routers import auth, share, trips
 
-Base.metadata.create_all(bind=engine)
+ensure_schema()
 
 app = FastAPI(
     title=settings.app_name,
@@ -24,6 +24,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(trips.router)
+app.include_router(share.router)
 
 
 @app.get("/api/health", tags=["health"])

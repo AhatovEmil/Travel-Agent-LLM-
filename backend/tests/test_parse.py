@@ -1,31 +1,50 @@
+from datetime import date
+
+from app.services.links import destination_links, place_links
 from app.services.parse import (
-    extract_days_count,
-    extract_destination,
-    extract_place_queries,
+    extract_start_date,
+    minutes_between,
+    parse_day_slots,
     parse_itinerary_days,
+    replace_day_in_itinerary,
 )
 
 
-def test_extract_destination_and_days():
-    brief = "Направление: Батуми.\nДлительность: 5 дн.\nБюджет: 50000"
-    assert extract_destination(brief) == "Батуми"
-    assert extract_days_count(brief) == 5
-
-
-def test_parse_itinerary_days():
+def test_parse_slots_and_dates():
     text = (
-        "## День 1 — пляж\nУтро: море.\n\n"
-        "## День 2 — город\nМузей.\n\n"
-        "## Запасной план на плохую погоду\nКафе."
+        "## День 1 — 2026-07-12 — обзор\n\n"
+        "### 09:00–11:00 — Батумский бульвар\n"
+        "Прогулка.\n\n"
+        "### 11:30–13:00 — Кафе на набережной\n"
+        "Обед.\n\n"
+        "## День 2 — 2026-07-13 — море\n\n"
+        "### 10:00–14:00 — Пляж\n"
+        "Купание.\n"
     )
-    days = parse_itinerary_days(text)
+    days = parse_itinerary_days(text, start_date=date(2026, 7, 12))
     assert len(days) == 2
-    assert "День 1" in days[0]["title"]
-    assert "море" in days[0]["content"]
-    assert "Запасной" not in days[1]["content"]
+    assert days[0]["date"] == "2026-07-12"
+    assert len(days[0]["slots"]) == 2
+    assert days[0]["slots"][0]["place"] == "Батумский бульвар"
+    assert days[0]["slots"][0]["start"] == "09:00"
+    assert minutes_between("11:00", "11:30") == 30
 
 
-def test_extract_place_queries():
-    queries = extract_place_queries("Посетите **Батумский бульвар** утром.", "Батуми", limit=3)
-    assert any("Батуми" in q for q in queries)
-    assert any("бульвар" in q.lower() for q in queries)
+def test_extract_start_date():
+    assert extract_start_date("Дата начала: 2026-08-01. Длительность: 3 дн.") == date(2026, 8, 1)
+
+
+def test_replace_day():
+    original = "## День 1 — A\n\nold\n\n## День 2 — B\n\nkeep\n"
+    updated = replace_day_in_itinerary(original, 0, "## День 1 — A\n\nnew")
+    assert "new" in updated
+    assert "keep" in updated
+    assert "old" not in updated
+
+
+def test_links_shape():
+    links = place_links("Бульвар", "Батуми")
+    assert "yandex.ru/maps" in links["maps"]
+    assert "booking.com" in links["booking"]
+    assert "aviasales" in links["tickets"]
+    assert destination_links("Батуми")["maps"]

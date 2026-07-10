@@ -6,7 +6,7 @@ import time
 from sqlalchemy.orm import Session
 
 from ..database import SessionLocal
-from ..models import Artifact, Trip
+from ..models import Artifact, Trip, Vote
 from .engine import LLMGenerationError, get_engine
 
 logger = logging.getLogger(__name__)
@@ -168,6 +168,122 @@ def run_chat_revise(trip_id: int, message: str) -> None:
             db.commit()
     except Exception as exc:  # noqa: BLE001
         logger.exception("Chat revise failed for trip %s", trip_id)
+        db.rollback()
+        trip = db.get(Trip, trip_id)
+        if trip is not None:
+            trip.status = "failed"
+            trip.error = f"{type(exc).__name__}: {exc}"
+            db.commit()
+    finally:
+        db.close()
+
+
+def run_live_adjust(trip_id: int, reason: str, message: str = "") -> None:
+    from datetime import date as date_cls
+
+    from .parse import parse_itinerary_days, replace_day_in_itinerary
+
+    db = SessionLocal()
+    try:
+        trip = db.get(Trip, trip_id)
+        if trip is None:
+            return
+        arts = _artifacts_map(trip)
+        current = arts.get("itinerary")
+        if not current:
+            trip.status = "failed"
+            trip.error = "Нет плана (itinerary)"
+            db.commit()
+            return
+
+        days = parse_itinerary_days(current, start_date=trip.start_date)
+        today = date_cls.today().isoformat()
+        day_index = next((i for i, d in enumerate(days) if d.get("date") == today), 0)
+        if day_index >= len(days):
+            day_index = 0
+        day = days[day_index]
+        day_md = f"## {day['title']}\n\n{day['content']}"
+
+        trip.status = "running"
+        trip.current_phase = "itinerary"
+        trip.error = ""
+        db.commit()
+
+        engine = get_engine()
+        new_day = engine.adjust_day(trip.name, trip.brief, day_md, reason, message)
+        revised = replace_day_in_itinerary(current, day_index, new_day)
+        _save_artifact(db, trip, "itinerary", revised)
+        trip.status = "completed"
+        db.commit()
+    except LLMGenerationError as exc:
+        logger.error("Live adjust failed for trip %s: %s", trip_id, exc)
+        db.rollback()
+        trip = db.get(Trip, trip_id)
+        if trip is not None:
+            trip.status = "failed"
+            trip.error = str(exc)
+            db.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Live adjust failed for trip %s", trip_id)
+        db.rollback()
+        trip = db.get(Trip, trip_id)
+        if trip is not None:
+            trip.status = "failed"
+            trip.error = f"{type(exc).__name__}: {exc}"
+            db.commit()
+    finally:
+        db.close()
+
+
+def run_rebuild_from_votes(trip_id: int) -> None:
+    from sqlalchemy import select
+
+    db = SessionLocal()
+    try:
+        trip = db.get(Trip, trip_id)
+        if trip is None:
+            return
+        arts = _artifacts_map(trip)
+        current = arts.get("itinerary")
+        if not current:
+            trip.status = "failed"
+            trip.error = "Нет плана (itinerary)"
+            db.commit()
+            return
+
+        votes = list(db.scalars(select(Vote).where(Vote.trip_id == trip_id)).all())
+        if not votes:
+            trip.status = "failed"
+            trip.error = "Нет голосов для пересборки"
+            db.commit()
+            return
+
+        lines = []
+        for v in votes:
+            lines.append(f"день {v.day_index}, слот {v.slot_key}: {v.voter} → {v.value}")
+        summary = "\n".join(lines)
+
+        trip.status = "running"
+        trip.current_phase = "itinerary"
+        trip.error = ""
+        db.commit()
+
+        engine = get_engine()
+        engine.load_context_from_artifacts(arts)
+        revised = engine.rebuild_from_votes(trip.name, trip.brief, current, summary)
+        _save_artifact(db, trip, "itinerary", revised)
+        trip.status = "completed"
+        db.commit()
+    except LLMGenerationError as exc:
+        logger.error("Rebuild votes failed for trip %s: %s", trip_id, exc)
+        db.rollback()
+        trip = db.get(Trip, trip_id)
+        if trip is not None:
+            trip.status = "failed"
+            trip.error = str(exc)
+            db.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Rebuild votes failed for trip %s", trip_id)
         db.rollback()
         trip = db.get(Trip, trip_id)
         if trip is not None:

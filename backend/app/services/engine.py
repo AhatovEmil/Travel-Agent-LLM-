@@ -111,9 +111,12 @@ class TravelEngine:
         text = self._complete(
             f"Поездка «{name}».\n\nBrief:\n{brief}\n\n"
             "Составь подробный Itinerary (план по дням).\n"
-            "ОБЯЗАТЕЛЬНО для каждого дня заголовок вида: ## День 1 — ...\n"
-            "Внутри дня: утро / день / вечер, конкретные места (можно выделять **названием**), "
-            "ориентировочное время, как добраться, что поесть рядом.\n"
+            "ОБЯЗАТЕЛЬНО для каждого дня заголовок:\n"
+            "## День 1 — YYYY-MM-DD — краткий заголовок\n"
+            "(даты подряд от «Дата начала» из brief; если даты нет — от сегодня).\n"
+            "Внутри дня слоты строго в формате:\n"
+            "### HH:MM–HH:MM — Название места\n"
+            "Под слотом: что делать, как добраться, ориентир по еде рядом.\n"
             "В конце отдельный блок ## Запасной план на плохую погоду."
         )
         self._context["itinerary"] = text
@@ -200,6 +203,46 @@ class TravelEngine:
             "Цены и часы помечай как ориентировочные."
         )
         return self._complete("\n\n".join(parts), temperature=0.4)
+
+    def adjust_day(
+        self,
+        name: str,
+        user_brief: str,
+        day_markdown: str,
+        reason: str,
+        message: str = "",
+    ) -> str:
+        reason_text = {
+            "late": "турист опаздывает, нужно сжать/сдвинуть оставшиеся слоты",
+            "rain": "плохая погода / дождь — заменить outdoor на indoor",
+            "custom": message or "нужна точечная правка дня",
+        }.get(reason, message or reason)
+        return self._complete(
+            f"Поездка «{name}».\nBrief:\n{user_brief}\n\n"
+            f"Текущий день:\n{day_markdown}\n\n"
+            f"Ситуация: {reason_text}\n\n"
+            "Перепиши ТОЛЬКО этот день целиком: сохрани заголовок ## День N — YYYY-MM-DD — … "
+            "и слоты ### HH:MM–HH:MM — Место. Не пиши другие дни и не пиши запасной план."
+        )
+
+    def rebuild_from_votes(
+        self,
+        name: str,
+        user_brief: str,
+        itinerary: str,
+        vote_summary: str,
+    ) -> str:
+        text = self._complete(
+            f"Поездка «{name}».\nBrief:\n{user_brief}\n\n"
+            f"Текущий Itinerary:\n{itinerary}\n\n"
+            f"Голоса спутников:\n{vote_summary}\n\n"
+            "Перепиши Itinerary целиком с учётом голосов: "
+            "слоты с преобладанием skip замени на альтернативы, "
+            "want сохрани. Формат: ## День N — YYYY-MM-DD — … и "
+            "### HH:MM–HH:MM — Место. В конце ## Запасной план на плохую погоду."
+        )
+        self._context["itinerary"] = text
+        return text
 
 
 def get_engine() -> TravelEngine:

@@ -25,56 +25,66 @@ export default function Auth({ onSuccess }) {
   }
 
   return (
-    <div className="auth-wrap">
-      <form className="card auth-card" onSubmit={submit}>
-        <div className="brand-mark">
-          Travel <span>Agent</span>
-        </div>
-        <p className="muted">План поездки, бюджет и чеклист за пару минут</p>
-        <div className="tabs">
-          <button
-            type="button"
-            className={mode === 'login' ? 'tab active' : 'tab'}
-            onClick={() => setMode('login')}
-          >
-            Вход
-          </button>
-          <button
-            type="button"
-            className={mode === 'register' ? 'tab active' : 'tab'}
-            onClick={() => setMode('register')}
-          >
-            Регистрация
-          </button>
-        </div>
-        <div className="stack">
-          <div>
-            <label className="field-label">Email</label>
-            <input
-              type="email"
-              placeholder="you@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+    <div className="auth-scene">
+      <div className="auth-photo" aria-hidden="true">
+        <img src="/images/auth-coast.jpg" alt="" />
+        <div className="auth-photo-veil" />
+      </div>
+
+      <div className="auth-stage">
+        <header className="auth-hero">
+          <h1 className="auth-brand">
+            Travel <span>Agent</span>
+          </h1>
+          <p className="auth-tagline">Планы, которые хочется увезти с собой</p>
+        </header>
+
+        <form className="auth-panel" onSubmit={submit}>
+          <div className="tabs">
+            <button
+              type="button"
+              className={mode === 'login' ? 'tab active' : 'tab'}
+              onClick={() => setMode('login')}
+            >
+              Вход
+            </button>
+            <button
+              type="button"
+              className={mode === 'register' ? 'tab active' : 'tab'}
+              onClick={() => setMode('register')}
+            >
+              Регистрация
+            </button>
           </div>
-          <div>
-            <label className="field-label">Пароль</label>
-            <input
-              type="password"
-              placeholder="минимум 6 символов"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-            />
+          <div className="stack">
+            <div>
+              <label className="field-label">Email</label>
+              <input
+                type="email"
+                placeholder="you@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="field-label">Пароль</label>
+              <input
+                type="password"
+                placeholder="минимум 6 символов"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            {error && <div className="error">{error}</div>}
+            <button className="primary auth-cta" disabled={busy}>
+              {busy ? '…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}
+            </button>
           </div>
-          {error && <div className="error">{error}</div>}
-          <button className="primary" disabled={busy}>
-            {busy ? '…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   )
 }

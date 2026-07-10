@@ -21,6 +21,23 @@ const INTERESTS = [
 
 const STEPS = ['Куда', 'Срок', 'Бюджет', 'Интересы']
 
+const MOODS = [
+  { label: 'Море', place: 'Батуми', img: '/images/dest-sea.jpg' },
+  { label: 'Город', place: 'Париж', img: '/images/dest-city.jpg' },
+  { label: 'Природа', place: 'Алтай', img: '/images/dest-nature.jpg' },
+]
+
+const COVER_IMAGES = [
+  '/images/dest-sea.jpg',
+  '/images/dest-city.jpg',
+  '/images/dest-nature.jpg',
+  '/images/dash-horizon.jpg',
+]
+
+function coverFor(id) {
+  return COVER_IMAGES[Math.abs(Number(id) || 0) % COVER_IMAGES.length]
+}
+
 function buildBrief({ destination, days, budget, interests, notes, travelers, startDate }) {
   const parts = [
     `Направление: ${destination.trim()}.`,
@@ -119,15 +136,42 @@ export default function Dashboard({ onOpen }) {
 
   return (
     <div className="container">
-      <div className="page-hero">
-        <h1>Куда отправимся?</h1>
-        <p>
-          Ответьте на несколько вопросов — агент соберёт план по дням, бюджет и чеклист.
-          Цены и адреса ориентировочные.
-        </p>
+      <div className="page-hero dash-hero">
+        <div className="dash-hero-copy">
+          <p className="hero-kicker">Travel Agent</p>
+          <h1>Куда отправимся?</h1>
+          <p>
+            Несколько вопросов — и готовый план по дням, бюджет и чеклист.
+            Цены и адреса ориентировочные.
+          </p>
+        </div>
+        <div className="dash-hero-photo">
+          <img src="/images/dash-horizon.jpg" alt="" />
+          <div className="dash-hero-photo-veil" />
+        </div>
       </div>
 
-      <section className="card">
+      <div className="mood-row" aria-label="Идеи направлений">
+        {MOODS.map((m) => (
+          <button
+            key={m.place}
+            type="button"
+            className="mood-card"
+            onClick={() => {
+              setDestination(m.place)
+              setStep(0)
+            }}
+          >
+            <img src={m.img} alt="" />
+            <span className="mood-meta">
+              <strong>{m.label}</strong>
+              <em>{m.place}</em>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <section className="card wizard-card">
         <div className="wizard-steps">
           {STEPS.map((label, i) => (
             <div
@@ -273,27 +317,42 @@ export default function Dashboard({ onOpen }) {
         <h2>Мои поездки</h2>
         <span className="muted">{trips.length}</span>
       </div>
-      {trips.length === 0 && <p className="muted">Пока пусто — пройдите мастер выше.</p>}
+      {trips.length === 0 && (
+        <div className="empty-trips">
+          <img src="/images/empty-bag.jpg" alt="" />
+          <p className="muted">Пока пусто — пройдите мастер выше или выберите настроение.</p>
+        </div>
+      )}
       <div className="grid">
-        {trips.map((t) => {
+        {trips.map((t, index) => {
           const [label, cls] = STATUS_LABELS[t.status] || [t.status, 'badge']
           return (
-            <div key={t.id} className="card project-card" onClick={() => onOpen(t.id)}>
-              <div className="row">
-                <h3>{t.name}</h3>
-                <span className={cls}>{label}</span>
+            <div
+              key={t.id}
+              className="card project-card"
+              onClick={() => onOpen(t.id)}
+              style={{ animationDelay: `${Math.min(index, 8) * 0.05}s` }}
+            >
+              <div className="project-cover">
+                <img src={coverFor(t.id)} alt="" />
               </div>
-              <p className="muted clamp">{t.brief}</p>
-              {t.status === 'running' && <p className="muted">Фаза: {t.current_phase || '…'}</p>}
-              <button
-                className="ghost danger"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  remove(t.id)
-                }}
-              >
-                Удалить
-              </button>
+              <div className="project-body">
+                <div className="row">
+                  <h3>{t.name}</h3>
+                  <span className={cls}>{label}</span>
+                </div>
+                <p className="muted clamp">{t.brief}</p>
+                {t.status === 'running' && <p className="muted">Фаза: {t.current_phase || '…'}</p>}
+                <button
+                  className="ghost danger"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    remove(t.id)
+                  }}
+                >
+                  Удалить
+                </button>
+              </div>
             </div>
           )
         })}

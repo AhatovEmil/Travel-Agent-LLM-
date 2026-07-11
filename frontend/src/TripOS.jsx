@@ -11,19 +11,21 @@ const MOODS = [
 ]
 
 const MODE_META = {
-  plan: { label: 'План', hint: 'Документы, маршрут, правки' },
-  onsite: { label: 'На месте', hint: 'Сегодня, live, Street Smart' },
-  memories: { label: 'Воспоминания', hint: 'Дневник и вечерние чекины' },
+  plan: { label: 'План', hint: 'Маршрут, документы, правки' },
+  onsite: { label: 'На месте', hint: 'Сегодня и live' },
+  memories: { label: 'Воспоминания', hint: 'Дневник поездки' },
 }
 
 export function TripModeBar({ mode, onChange, phaseHint }) {
   return (
     <nav className="trip-os-bar" aria-label="Режим поездки">
       <div className="trip-os-bar-copy">
-        <strong>ОС поездки</strong>
-        <span className="muted small">
+        <span className="trip-os-bar-label muted small">Режим</span>
+        <span className="muted small trip-os-bar-hint">
           {MODE_META[mode]?.hint}
-          {phaseHint ? ` · сейчас логично: ${MODE_META[phaseHint]?.label || phaseHint}` : ''}
+          {phaseHint && phaseHint !== mode
+            ? ` · сейчас уместнее: ${MODE_META[phaseHint]?.label || phaseHint}`
+            : ''}
         </span>
       </div>
       <div className="trip-os-tabs" role="tablist">
@@ -71,19 +73,23 @@ export function MorningBriefing({ tripId, dayIndex }) {
 
   return (
     <section className="trip-os-briefing">
-      <div className="section-title">
-        <h2>Сегодня</h2>
-        <span className="muted small">{data.day_date || `День ${data.day_index + 1}`}</span>
-      </div>
-      <h3 className="trip-os-day-title">{data.day_title}</h3>
-      {data.weather && (
-        <p className="trip-os-weather">
-          {data.weather.label} · {data.weather.temp_min}°…{data.weather.temp_max}°
-        </p>
-      )}
+      <header className="trip-os-briefing-head">
+        <div>
+          <p className="trip-os-kicker">Сегодня</p>
+          <h2 className="trip-os-day-title">{data.day_title}</h2>
+        </div>
+        <div className="trip-os-briefing-meta">
+          <span className="muted small">{data.day_date || `День ${data.day_index + 1}`}</span>
+          {data.weather && (
+            <span className="trip-os-weather">
+              {data.weather.label} · {data.weather.temp_min}°…{data.weather.temp_max}°
+            </span>
+          )}
+        </div>
+      </header>
       {data.tip && (
         <p className="trip-os-tip">
-          <strong>Совет дня:</strong> {data.tip}
+          <strong>Совет дня.</strong> {data.tip}
         </p>
       )}
       {data.phrase && (
@@ -93,7 +99,7 @@ export function MorningBriefing({ tripId, dayIndex }) {
         </p>
       )}
       {data.quest_teaser && (
-        <p className="muted small">Квест: {data.quest_teaser}</p>
+        <p className="muted small trip-os-quest">Квест: {data.quest_teaser}</p>
       )}
       {data.slots_preview?.length > 0 && (
         <ol className="trip-os-slots">
@@ -162,9 +168,14 @@ export function EveningCheckin({ tripId, dayIndex, slots = [], existing, onSaved
 
   return (
     <section className="trip-os-evening">
-      <h2>Вечерний чекин</h2>
-      <p className="muted small">Как прошёл день {dayIndex + 1}? Отметьте сделанное и настроение.</p>
-      <form onSubmit={submit}>
+      <header className="trip-os-evening-head">
+        <p className="trip-os-kicker">Конец дня</p>
+        <h2>Вечерний чекин</h2>
+        <p className="muted small">
+          Как прошёл день {dayIndex + 1}? Отметьте сделанное и настроение — это уйдёт в воспоминания.
+        </p>
+      </header>
+      <form className="trip-os-evening-form" onSubmit={submit}>
         <div className="trip-os-moods" role="group" aria-label="Настроение">
           {MOODS.map((m) => (
             <button

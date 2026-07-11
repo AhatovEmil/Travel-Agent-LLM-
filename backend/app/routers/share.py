@@ -1,6 +1,6 @@
 """Публичный доступ к совместному плану по share_token."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from ..deps import get_db
 from ..models import Trip, Vote
 from ..schemas import VoteOut, VoteRequest
 from ..services.extras import build_trip_extras
+from ..services.rate_limit import check_share_rate_limit
 
 router = APIRouter(prefix="/api/share", tags=["share"])
 
@@ -34,7 +35,8 @@ def _vote_summary(votes: list[Vote]) -> dict[str, dict]:
 
 
 @router.get("/{token}")
-def get_shared_trip(token: str, db: Session = Depends(get_db)):
+def get_shared_trip(token: str, request: Request, db: Session = Depends(get_db)):
+    check_share_rate_limit(request)
     trip = _trip_by_token(token, db)
     extras = build_trip_extras(trip, geocode_limit=3)
     return {
@@ -51,7 +53,13 @@ def get_shared_trip(token: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{token}/votes", response_model=VoteOut)
-def cast_vote(token: str, payload: VoteRequest, db: Session = Depends(get_db)):
+def cast_vote(
+    token: str,
+    payload: VoteRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    check_share_rate_limit(request)
     trip = _trip_by_token(token, db)
     voter = payload.voter.strip()[:40]
     if not voter:

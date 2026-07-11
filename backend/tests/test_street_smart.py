@@ -28,6 +28,13 @@ def test_detect_region_batumi_paris():
     assert detect_region("Париж") == "eu"
 
 
+def test_detect_region_russian_cities():
+    assert detect_region("Ноябрьск") == "ru"
+    assert detect_region("Тюмень") == "ru"
+    assert detect_region("Сочи") == "ru"
+    assert detect_region("Алтай") == "ru"
+
+
 def test_survival_batumi_has_georgian_phrases():
     trip = _trip("Батуми, 3 дн.", "Направление: Батуми. Длительность: 3 дн.")
     data = build_survival(trip)

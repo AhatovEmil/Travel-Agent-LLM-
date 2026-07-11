@@ -10,9 +10,56 @@ from .parse import extract_destination, parse_itinerary_days
 
 Region = str  # ge | tr | eu | ru | default
 
+_CYR = re.compile(r"[а-яё]", re.I)
+_LAT = re.compile(r"[a-z]", re.I)
+
+# Типичные русские/СНГ маркеры в названии города
+_RU_HINTS = (
+    "москв",
+    "петербург",
+    "питер",
+    "сочи",
+    "казан",
+    "калининград",
+    "екатеринбург",
+    "новосибир",
+    "ноябрьск",
+    "тюмен",
+    "краснояр",
+    "владивосток",
+    "хабаров",
+    "иркутск",
+    "самар",
+    "нижний",
+    "новгород",
+    "ростов",
+    "уфа",
+    "перм",
+    "воронеж",
+    "волгоград",
+    "краснодар",
+    "якутск",
+    "мурманск",
+    "архангельск",
+    "челябинск",
+    "омск",
+    "томск",
+    "барнаул",
+    "алтай",
+    "карел",
+    "байкал",
+    "крым",
+    "ялта",
+    "севастопол",
+    "симферопол",
+    "минск",
+    "росси",
+    "russia",
+)
+
 
 def detect_region(destination: str) -> Region:
-    d = (destination or "").lower()
+    d = (destination or "").lower().strip()
     if any(x in d for x in ("батуми", "тбилиси", "грузи", "batumi", "tbilisi", "georgia", "кутаиси")):
         return "ge"
     if any(x in d for x in ("стамбул", "анталь", "istanbul", "antalya", "турци", "turkey", "каппадок")):
@@ -37,23 +84,24 @@ def detect_region(destination: str) -> Region:
             "франц",
             "испан",
             "герман",
+            "мадрид",
+            "лиссабон",
+            "вена",
+            "vienna",
         )
     ):
         return "eu"
-    if any(
-        x in d
-        for x in (
-            "москв",
-            "петербург",
-            "питер",
-            "сочи",
-            "казан",
-            "калининград",
-            "екатеринбург",
-            "новосибир",
-            "росси",
-        )
-    ):
+    if any(x in d for x in _RU_HINTS):
+        return "ru"
+    if re.search(r"(ск|цк|ов|ев|ин|град|поль|бург)$", d.replace(" ", "")):
+        # Ноябрьск, Екатеринбург, Севастополь…
+        cyr = len(_CYR.findall(d))
+        if cyr >= 3:
+            return "ru"
+    # Кириллическое название без явного зарубежья → русскоязычный контекст
+    cyr = len(_CYR.findall(d))
+    lat = len(_LAT.findall(d))
+    if cyr >= 3 and cyr >= lat:
         return "ru"
     return "default"
 

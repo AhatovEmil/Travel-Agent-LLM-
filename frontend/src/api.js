@@ -65,6 +65,8 @@ export const api = {
     request(`/api/trips/${id}/itinerary/versions/${versionId}/rollback`, { method: 'POST' }),
   getExtras: (id, fast = false) =>
     request(`/api/trips/${id}/extras${fast ? '?fast=1' : ''}`),
+  getPhotos: (id) => request(`/api/trips/${id}/photos`),
+  lookupPhotos: (q) => request(`/api/photos?q=${encodeURIComponent(q)}`),
   getLive: (id, lat, lon) => {
     const q = new URLSearchParams()
     if (lat != null) q.set('lat', String(lat))
@@ -78,6 +80,7 @@ export const api = {
       body: JSON.stringify({ reason, message }),
     }),
   enableShare: (id) => request(`/api/trips/${id}/share`, { method: 'POST' }),
+  revokeShare: (id) => request(`/api/trips/${id}/share`, { method: 'DELETE' }),
   getVotes: (id) => request(`/api/trips/${id}/votes`),
   rebuildFromVotes: (id) => request(`/api/trips/${id}/rebuild-from-votes`, { method: 'POST' }),
   recoverTrip: (id) => request(`/api/trips/${id}/recover`, { method: 'POST' }),

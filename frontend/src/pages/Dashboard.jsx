@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { coverForText } from '../covers.js'
+import MoodCard from '../MoodCard.jsx'
 import { plainText } from '../Markdown.jsx'
 import ExamplePreview, { hasSeenExample, markExampleSeen } from '../ExamplePreview.jsx'
 
@@ -192,21 +193,16 @@ export default function Dashboard({ onOpen }) {
 
       <div className="mood-row" aria-label="Идеи направлений">
         {MOODS.map((m) => (
-          <button
+          <MoodCard
             key={m.place}
-            type="button"
-            className="mood-card"
-            onClick={() => {
+            label={m.label}
+            place={m.place}
+            fallback={m.img}
+            onPick={() => {
               setDestination(m.place)
               setStep(0)
             }}
-          >
-            <img src={m.img} alt="" />
-            <span className="mood-meta">
-              <strong>{m.label}</strong>
-              <em>{m.place}</em>
-            </span>
-          </button>
+          />
         ))}
       </div>
 

@@ -12,6 +12,7 @@ backend/.env
 **/.env
 
 .geocode_cache.json
+.photos_cache.json
 node_modules/
 dist/
 .vscode/

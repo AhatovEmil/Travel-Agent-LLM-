@@ -326,6 +326,9 @@ def test_share_and_vote_and_rebuild(client, auth_headers, monkeypatch):
     assert rebuild.status_code == 202
     assert _wait_status(client, auth_headers, trip_id) == "completed"
 
+    assert client.delete(f"/api/trips/{trip_id}/share", headers=auth_headers).status_code == 204
+    assert client.get(f"/api/share/{token}").status_code == 404
+
 
 def test_live_endpoint(client, auth_headers, monkeypatch):
     _mock_engine(monkeypatch)

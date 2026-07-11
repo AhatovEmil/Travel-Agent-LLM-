@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import AskChat from '../AskChat.jsx'
 import { coverForText } from '../covers.js'
+import DestinationGallery from '../DestinationGallery.jsx'
 import LinkButtons, { FeasibilityBadge } from '../LinkButtons.jsx'
 import Markdown, { plainText } from '../Markdown.jsx'
 import { announceTripReady, ensureNotifyPermission } from '../notify.js'
@@ -76,6 +77,8 @@ export default function Trip({ tripId, onBack }) {
   const [tripMode, setTripMode] = useState('plan')
   const [modeHint, setModeHint] = useState(null)
   const [journal, setJournal] = useState([])
+  const [photos, setPhotos] = useState([])
+  const [photosLoading, setPhotosLoading] = useState(false)
   const modeBootstrapped = useRef(false)
   const wasFastExtras = useRef(false)
   const prevStatus = useRef(null)
@@ -209,6 +212,25 @@ export default function Trip({ tripId, onBack }) {
       clearTimeout(timer)
     }
   }, [tripId, trip?.status])
+
+  useEffect(() => {
+    if (!trip || trip.status === 'running') return undefined
+    let cancelled = false
+    setPhotosLoading(true)
+    ;(async () => {
+      try {
+        const res = await api.getPhotos(tripId)
+        if (!cancelled) setPhotos(res.photos || [])
+      } catch {
+        if (!cancelled) setPhotos([])
+      } finally {
+        if (!cancelled) setPhotosLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tripId, trip?.id, trip?.status, trip?.brief])
 
   if (error)
     return (
@@ -363,6 +385,18 @@ export default function Trip({ tripId, onBack }) {
     }
   }
 
+  const revokeShare = async () => {
+    setShareMsg('')
+    try {
+      await api.revokeShare(tripId)
+      setShareUrl('')
+      setTrip({ ...trip, share_token: null })
+      setShareMsg('Публичная ссылка отозвана')
+    } catch (err) {
+      setActionError(err.message)
+    }
+  }
+
   const rebuildVotes = async () => {
     setActionError('')
     try {
@@ -399,15 +433,14 @@ export default function Trip({ tripId, onBack }) {
         ← Все поездки
       </button>
 
-      <div className="trip-cover">
-        <img src={cover} alt="" />
-        <div className="trip-cover-veil" />
-        <div className="trip-cover-copy">
-          <p className="hero-kicker">Поездка</p>
-          <h1>{trip.name}</h1>
-          {trip.start_date && <p className="trip-cover-meta">Старт: {trip.start_date}</p>}
-        </div>
-      </div>
+      <DestinationGallery
+        photos={photos}
+        loading={photosLoading}
+        fallbackSrc={cover}
+        destination={extras?.destination || ''}
+        title={trip.name}
+        meta={trip.start_date ? `Старт: ${trip.start_date}` : ''}
+      />
 
       <div className="page-hero trip-hero">
         <div className="row">
@@ -424,6 +457,11 @@ export default function Trip({ tripId, onBack }) {
                 <button className="ghost" onClick={copyShare}>
                   Ссылка для друзей
                 </button>
+                {(trip.share_token || shareUrl) && (
+                  <button className="ghost" onClick={revokeShare}>
+                    Отозвать ссылку
+                  </button>
+                )}
               </>
             )}
             {(trip.status === 'completed' || trip.status === 'failed') && (
@@ -452,7 +490,7 @@ export default function Trip({ tripId, onBack }) {
         Черновик от ИИ — адреса и цены ориентировочные.
       </p>
 
-      {idle && extras?.links && (
+      {mode === 'plan' && idle && extras?.links && (
         <section className="booking-section booking-top">
           <div className="section-title">
             <h2>Жильё и билеты</h2>
@@ -472,22 +510,7 @@ export default function Trip({ tripId, onBack }) {
       )}
 
       {mode === 'onsite' && idle && itinerary && (
-        <>
-          <MorningBriefing tripId={tripId} dayIndex={focusDayIdx} />
-          <EveningCheckin
-            tripId={tripId}
-            dayIndex={focusDayIdx}
-            slots={focusDay?.slots || []}
-            existing={eveningEntry}
-            onSaved={async () => {
-              try {
-                setJournal(await api.listJournal(tripId))
-              } catch {
-                /* ignore */
-              }
-            }}
-          />
-        </>
+        <MorningBriefing tripId={tripId} dayIndex={focusDayIdx} />
       )}
 
       {mode === 'memories' && idle && itinerary && (
@@ -895,6 +918,22 @@ export default function Trip({ tripId, onBack }) {
       )}
 
       {mode === 'onsite' && idle && itinerary && <StreetSmart tripId={tripId} />}
+
+      {mode === 'onsite' && idle && itinerary && (
+        <EveningCheckin
+          tripId={tripId}
+          dayIndex={focusDayIdx}
+          slots={focusDay?.slots || []}
+          existing={eveningEntry}
+          onSaved={async () => {
+            try {
+              setJournal(await api.listJournal(tripId))
+            } catch {
+              /* ignore */
+            }
+          }}
+        />
+      )}
 
       {mode === 'plan' && votes.length > 0 && idle && (
         <section className="chat-panel">

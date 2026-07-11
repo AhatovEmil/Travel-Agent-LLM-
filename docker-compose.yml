@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: travel
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-travel_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: travel
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -17,14 +17,16 @@ services:
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+psycopg2://travel:${POSTGRES_PASSWORD:-travel_password}@db:5432/travel
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+psycopg2://travel:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/travel
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -hex 32)}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com/v1}
       LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
       LLM_MODEL_FALLBACKS: ${LLM_MODEL_FALLBACKS:-deepseek-reasoner}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,https://localhost}
       LLM_RATE_LIMIT_PER_HOUR: ${LLM_RATE_LIMIT_PER_HOUR:-20}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
     depends_on:
       db:
         condition: service_healthy

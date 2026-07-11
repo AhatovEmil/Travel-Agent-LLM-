@@ -28,6 +28,8 @@ from ..schemas import (
 from ..services.engine import LLMGenerationError, get_engine
 from ..services.export import build_trip_markdown, build_trip_pdf
 from ..services.extras import build_live_status, build_trip_extras
+from ..services.parse import extract_destination
+from ..services.photos import destination_photos
 from ..services.pipeline import (
     PHASES,
     rollback_itinerary,
@@ -334,6 +336,19 @@ def trip_extras(
     return build_trip_extras(trip, geocode_limit=0 if fast else 10)
 
 
+@router.get("/{trip_id}/photos")
+def trip_photos(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Реальные фото направления (Wikimedia Commons), с кэшем."""
+    trip = _get_owned_trip(trip_id, current_user, db)
+    destination = extract_destination(trip.brief or "", trip.name or "")
+    photos = destination_photos(destination, limit=8)
+    return {"destination": destination, "photos": photos}
+
+
 @router.get("/{trip_id}/live")
 def trip_live(
     trip_id: int,
@@ -406,6 +421,19 @@ def enable_share(
         share_token=trip.share_token,
         share_path=f"#/share/{trip.share_token}",
     )
+
+
+@router.delete("/{trip_id}/share", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_share(
+    trip_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Отзывает публичную ссылку — старый токен перестаёт работать."""
+    trip = _get_owned_trip(trip_id, current_user, db)
+    trip.share_token = None
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{trip_id}/votes", response_model=list[VoteOut])

@@ -74,7 +74,7 @@ function defaultStartDate() {
   return d.toISOString().slice(0, 10)
 }
 
-export default function Dashboard({ onOpen }) {
+export default function Dashboard({ onOpen, onQuotaChange }) {
   const [trips, setTrips] = useState([])
   const [step, setStep] = useState(0)
   const [destination, setDestination] = useState('')
@@ -150,6 +150,7 @@ export default function Dashboard({ onOpen }) {
       const name = `${destination.trim()}, ${days} дн.`
       const trip = await api.createTrip(name.slice(0, 255), brief, startDate)
       await api.runTrip(trip.id)
+      onQuotaChange?.()
       setDestination('')
       setDays('5')
       setStartDate(defaultStartDate())

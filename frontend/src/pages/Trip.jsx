@@ -54,7 +54,7 @@ function formatVersionTime(iso) {
   }
 }
 
-export default function Trip({ tripId, onBack }) {
+export default function Trip({ tripId, onBack, onQuotaChange }) {
   const [trip, setTrip] = useState(null)
   const [artifacts, setArtifacts] = useState([])
   const [extras, setExtras] = useState(null)
@@ -283,6 +283,7 @@ export default function Trip({ tripId, onBack }) {
     setActionError('')
     try {
       await api.runTrip(tripId)
+      onQuotaChange?.()
       setArtifacts([])
       setExtras(null)
       setOpenArtifact(null)

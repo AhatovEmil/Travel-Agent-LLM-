@@ -34,9 +34,93 @@ class Settings(BaseSettings):
     # False — закрыть публичную регистрацию (только логин)
     registration_enabled: bool = True
 
+    # Бесплатные полные генерации плана (POST /run) на календарный месяц UTC
+    free_generations_per_month: int = 5
+    # Fallback-ссылка (бот или поддержка), если Tribute не настроен
+    support_telegram: str = "https://t.me/"
+    # Секрет для POST /api/admin/credits (пусто = эндпоинт выключен)
+    admin_credit_token: str = ""
+
+    # Tribute digital products + webhook
+    tribute_api_key: str = ""
+    tribute_product_10: str = ""
+    tribute_product_30: str = ""
+    tribute_product_100: str = ""
+    tribute_link_10: str = ""
+    tribute_link_30: str = ""
+    tribute_link_100: str = ""
+
+    # Telegram bot: шлёт ссылки на оплату Tribute; Login Widget / WebApp link
+    telegram_bot_token: str = ""
+    telegram_bot_username: str = ""
+
     @property
     def is_production(self) -> bool:
         return self.environment.strip().lower() == "production"
+
+    def tribute_product_map(self) -> dict[str, int]:
+        """product_id (str) -> credits."""
+        mapping: dict[str, int] = {}
+        for pid, credits in (
+            (self.tribute_product_10, 10),
+            (self.tribute_product_30, 30),
+            (self.tribute_product_100, 100),
+        ):
+            key = str(pid or "").strip()
+            if key:
+                mapping[key] = credits
+        return mapping
+
+    @property
+    def generation_packages(self) -> list[dict]:
+        bot = (self.telegram_bot_username or "").strip().lstrip("@")
+        bot_base = f"https://t.me/{bot}" if bot else (self.support_telegram or "https://t.me/").rstrip("/")
+
+        def pack(pid: str, gens: int, price: int, label: str, link: str, start: str) -> dict:
+            tribute_url = (link or "").strip()
+            # Кнопка «Купить» ведёт в нашего бота с deep-link; бот ответит ссылкой Tribute
+            buy_url = f"{bot_base}?start={start}" if bot else (tribute_url or bot_base)
+            return {
+                "id": pid,
+                "generations": gens,
+                "price_rub": price,
+                "label": label,
+                "tribute_url": tribute_url,
+                "buy_url": buy_url,
+            }
+
+        return [
+            pack(
+                "pack10",
+                10,
+                299,
+                "10 генераций",
+                self.tribute_link_10,
+                "buy10",
+            ),
+            pack(
+                "pack30",
+                30,
+                699,
+                "30 генераций",
+                self.tribute_link_30,
+                "buy30",
+            ),
+            pack(
+                "pack100",
+                100,
+                1990,
+                "100 генераций",
+                self.tribute_link_100,
+                "buy100",
+            ),
+        ]
+
+    def bot_deep_link(self, start: str = "buy") -> str:
+        bot = (self.telegram_bot_username or "").strip().lstrip("@")
+        if not bot:
+            return (self.support_telegram or "https://t.me/").strip()
+        return f"https://t.me/{bot}?start={start}"
 
     def validate_for_runtime(self) -> None:
         """Падаем при небезопасной конфигурации в production."""

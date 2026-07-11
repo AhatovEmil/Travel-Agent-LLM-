@@ -168,6 +168,9 @@ def run_trip(
     _require_idle(trip)
     _require_llm_key()
     _require_llm_budget(current_user)
+    from ..services.billing import check_and_consume_generation
+
+    check_and_consume_generation(current_user, db)
     trip.status = "running"
     trip.current_phase = "brief"
     trip.error = ""

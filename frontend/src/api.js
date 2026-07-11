@@ -4,6 +4,23 @@ export const getToken = () => localStorage.getItem(TOKEN_KEY)
 export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token)
 export const clearToken = () => localStorage.removeItem(TOKEN_KEY)
 
+export class ApiError extends Error {
+  constructor(message, { status = 0, detail = null } = {}) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.detail = detail
+  }
+}
+
+function detailMessage(detail, fallback) {
+  if (typeof detail === 'string') return detail
+  if (detail && typeof detail === 'object' && typeof detail.message === 'string') {
+    return detail.message
+  }
+  return fallback
+}
+
 async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) }
   const token = getToken()
@@ -15,14 +32,24 @@ async function request(path, options = {}) {
     window.dispatchEvent(new Event('travel-logout'))
   }
   if (!response.ok) {
-    let detail = `Ошибка ${response.status}`
+    let detail = null
+    let message = `Ошибка ${response.status}`
     try {
       const body = await response.json()
-      if (typeof body.detail === 'string') detail = body.detail
+      detail = body.detail ?? body
+      message = detailMessage(detail, message)
     } catch {
       /* ignore */
     }
-    throw new Error(detail)
+    if (
+      response.status === 402 &&
+      detail &&
+      typeof detail === 'object' &&
+      detail.code === 'quota_exceeded'
+    ) {
+      window.dispatchEvent(new CustomEvent('travel-quota', { detail }))
+    }
+    throw new ApiError(message, { status: response.status, detail })
   }
   if (response.status === 204) return null
   return response.json()
@@ -34,6 +61,17 @@ export const api = {
   login: (email, password) =>
     request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   me: () => request('/api/auth/me'),
+  billingPackages: () => request('/api/billing/packages'),
+  linkTelegramWidget: (user) =>
+    request('/api/billing/telegram/link-widget', {
+      method: 'POST',
+      body: JSON.stringify(user),
+    }),
+  linkTelegramInitData: (initData) =>
+    request('/api/billing/telegram/link', {
+      method: 'POST',
+      body: JSON.stringify({ init_data: initData }),
+    }),
   listTrips: () => request('/api/trips'),
   createTrip: (name, brief, startDate) =>
     request('/api/trips', {

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import { clearToken, getToken } from './api.js'
+import { useCallback, useEffect, useState } from 'react'
+import { api, clearToken, getToken } from './api.js'
+import QuotaModal, { QuotaBadge } from './QuotaModal.jsx'
 import ToastHost from './Toast.jsx'
 import Auth from './pages/Auth.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -21,6 +22,29 @@ function parseHash() {
 export default function App() {
   const [authed, setAuthed] = useState(Boolean(getToken()))
   const [route, setRoute] = useState(parseHash)
+  const [quota, setQuota] = useState(null)
+  const [quotaOpen, setQuotaOpen] = useState(false)
+  const [quotaDetail, setQuotaDetail] = useState(null)
+
+  const refreshQuota = useCallback(() => {
+    if (!getToken()) {
+      setQuota(null)
+      return
+    }
+    api
+      .me()
+      .then((u) =>
+        setQuota({
+          free_left: u.free_left,
+          free_limit: u.free_limit,
+          free_used: u.free_used,
+          credit_balance: u.credit_balance,
+          period: u.period,
+          telegram_linked: u.telegram_linked,
+        }),
+      )
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const onHash = () => setRoute(parseHash())
@@ -31,11 +55,26 @@ export default function App() {
   useEffect(() => {
     const onLogout = () => {
       setAuthed(false)
+      setQuota(null)
       window.location.hash = '#/'
     }
     window.addEventListener('travel-logout', onLogout)
     return () => window.removeEventListener('travel-logout', onLogout)
   }, [])
+
+  useEffect(() => {
+    const onQuota = (e) => {
+      setQuotaDetail(e.detail || null)
+      setQuotaOpen(true)
+      refreshQuota()
+    }
+    window.addEventListener('travel-quota', onQuota)
+    return () => window.removeEventListener('travel-quota', onQuota)
+  }, [refreshQuota])
+
+  useEffect(() => {
+    if (authed) refreshQuota()
+  }, [authed, refreshQuota])
 
   const openTrip = (id) => {
     window.location.hash = `#/trip/${id}`
@@ -52,7 +91,22 @@ export default function App() {
   const logout = () => {
     clearToken()
     setAuthed(false)
+    setQuota(null)
     goHome()
+  }
+
+  const openQuota = () => {
+    setQuotaDetail(
+      quota
+        ? {
+            free_left: quota.free_left,
+            free_limit: quota.free_limit,
+            credits: quota.credit_balance,
+            telegram_linked: quota.telegram_linked,
+          }
+        : null,
+    )
+    setQuotaOpen(true)
   }
 
   if (route.view === 'share') {
@@ -104,6 +158,7 @@ export default function App() {
           Travel <span>Agent</span>
         </button>
         <div className="topbar-actions">
+          <QuotaBadge quota={quota} onClick={openQuota} />
           <button className="ghost compact" onClick={goFaq}>
             FAQ
           </button>
@@ -114,11 +169,32 @@ export default function App() {
       </header>
       <main>
         {route.view === 'trip' && route.tripId ? (
-          <Trip tripId={route.tripId} onBack={goHome} />
+          <Trip tripId={route.tripId} onBack={goHome} onQuotaChange={refreshQuota} />
         ) : (
-          <Dashboard onOpen={openTrip} />
+          <Dashboard onOpen={openTrip} onQuotaChange={refreshQuota} />
         )}
       </main>
+      <QuotaModal
+        open={quotaOpen}
+        initialDetail={quotaDetail}
+        quota={quota}
+        onLinked={(res) => {
+          refreshQuota()
+          setQuota((q) =>
+            q
+              ? {
+                  ...q,
+                  telegram_linked: true,
+                  credit_balance: res.credit_balance ?? q.credit_balance,
+                }
+              : q,
+          )
+        }}
+        onClose={() => {
+          setQuotaOpen(false)
+          refreshQuota()
+        }}
+      />
       <ToastHost />
     </div>
   )

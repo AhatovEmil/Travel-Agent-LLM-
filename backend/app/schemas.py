@@ -24,6 +24,63 @@ class UserOut(BaseModel):
     id: int
     email: str
     created_at: datetime
+    free_left: int = 0
+    free_limit: int = 5
+    free_used: int = 0
+    credit_balance: int = 0
+    period: str = ""
+    telegram_linked: bool = False
+    telegram_id: str | None = None
+
+
+class GenerationPackage(BaseModel):
+    id: str
+    generations: int
+    price_rub: int
+    label: str
+    tribute_url: str = ""
+    buy_url: str = ""
+
+
+class BillingPackagesOut(BaseModel):
+    packages: list[GenerationPackage]
+    telegram_url: str
+    bot_url: str = ""
+    bot_username: str = ""
+    free_generations_per_month: int
+    tribute_configured: bool = False
+
+
+class AdminCreditRequest(BaseModel):
+    email: EmailStr
+    amount: int = Field(ge=1, le=10000)
+
+
+class AdminCreditResponse(BaseModel):
+    email: str
+    credit_balance: int
+    added: int
+
+
+class TelegramLinkInitData(BaseModel):
+    init_data: str = Field(min_length=10, max_length=4096)
+
+
+class TelegramLinkWidget(BaseModel):
+    id: int
+    first_name: str | None = None
+    last_name: str | None = None
+    username: str | None = None
+    photo_url: str | None = None
+    auth_date: int
+    hash: str
+
+
+class TelegramLinkResponse(BaseModel):
+    telegram_linked: bool
+    telegram_id: str
+    credits_claimed: int = 0
+    credit_balance: int = 0
 
 
 class TripCreate(BaseModel):

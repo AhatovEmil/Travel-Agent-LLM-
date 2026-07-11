@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import ensure_schema
-from .routers import auth, photos, share, trips
+from .routers import auth, billing, photos, share, trips
 
 ensure_schema()
 
@@ -36,6 +36,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(billing.router)
 app.include_router(trips.router)
 app.include_router(share.router)
 app.include_router(photos.router)

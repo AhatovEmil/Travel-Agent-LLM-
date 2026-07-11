@@ -17,10 +17,50 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Купленные генерации (не сгорают); бесплатные — по календарному месяцу UTC
+    credit_balance: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    free_used_month: Mapped[str] = mapped_column(String(7), default="", nullable=False)  # YYYY-MM
+    free_used_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Telegram user id (строка) для автоначисления после оплаты Tribute
+    telegram_id: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
 
     trips: Mapped[list["Trip"]] = relationship(
         back_populates="owner", cascade="all, delete-orphan"
     )
+
+
+class TributePayment(Base):
+    """Идемпотентность webhook Tribute (успешная оплата digital product)."""
+
+    __tablename__ = "tribute_payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_key: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    product_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    telegram_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    credits: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="credited")
+    # credited | pending | ignored
+    raw_name: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PendingCredit(Base):
+    """Оплата пришла, но telegram_id ещё не привязан к аккаунту на сайте."""
+
+    __tablename__ = "pending_credits"
+    __table_args__ = (
+        UniqueConstraint("telegram_id", "event_key", name="uq_pending_tg_event"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    telegram_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    event_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    credits: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Trip(Base):

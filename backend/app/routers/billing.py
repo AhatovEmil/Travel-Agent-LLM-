@@ -97,6 +97,13 @@ def link_telegram_widget(
     return _link_telegram(current_user, parsed["telegram_id"], db)
 
 
+@router.get("/api/billing/tribute/webhook")
+def tribute_webhook_ping():
+    """Проверка доступности URL (Tribute / мониторинг)."""
+    configured = bool((settings.tribute_api_key or "").strip())
+    return {"ok": True, "tribute_key_configured": configured}
+
+
 @router.post("/api/billing/tribute/webhook")
 async def tribute_webhook(
     request: Request,
@@ -106,12 +113,25 @@ async def tribute_webhook(
     import json
 
     body = await request.body()
+    # Пустой / тестовый ping без тела — отвечаем 200, чтобы Tribute принял URL
+    if not body or body.strip() in (b"", b"{}", b"null"):
+        return {"ok": True, "action": "ping"}
+
     if not (settings.tribute_api_key or "").strip():
+        log.error("tribute webhook: TRIBUTE_API_KEY missing")
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "TRIBUTE_API_KEY не задан",
         )
+
+    # Иногда заголовок приходит в другом регистре / имени
+    if not trbt_signature:
+        trbt_signature = request.headers.get("trbt-signature") or request.headers.get(
+            "Trbt-Signature"
+        )
+
     if not tribute.verify_tribute_signature(body, trbt_signature):
+        log.warning("tribute webhook: bad signature, len(body)=%s", len(body))
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid Tribute signature")
     try:
         data = json.loads(body.decode("utf-8"))
@@ -119,6 +139,12 @@ async def tribute_webhook(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid JSON") from exc
     if not isinstance(data, dict):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid payload")
+
+    # Тестовые события без начисления
+    name = str(data.get("name") or "")
+    if name in ("test", "ping", "webhook_test") or data.get("test") is True:
+        return {"ok": True, "action": "test"}
+
     result = tribute.process_tribute_event(data, db)
     return result
 

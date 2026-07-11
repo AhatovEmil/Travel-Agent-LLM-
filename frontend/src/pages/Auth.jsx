@@ -37,10 +37,10 @@ export default function Auth({ onSuccess }) {
           <h1 className="auth-brand">
             Travel <span>Agent</span>
           </h1>
-          <p className="auth-tagline">Маршрут, бюджет и чеклист — за несколько вопросов</p>
         </header>
 
         <form className="auth-panel" onSubmit={submit}>
+          <p className="auth-tagline">Маршрут, бюджет и чеклист — за несколько вопросов</p>
           <div className="tabs" role="tablist">
             <button
               type="button"
@@ -85,7 +85,7 @@ export default function Auth({ onSuccess }) {
                 id="auth-password"
                 type="password"
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                placeholder="минимум 6 символов"
+                placeholder="минимум 8 символов"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

@@ -24,6 +24,20 @@ def clean_db():
     yield
 
 
+@pytest.fixture(autouse=True)
+def fast_geocode(monkeypatch):
+    """В тестах не ходим в Nominatim; «выдуманные» места остаются пустыми."""
+
+    def fake(q: str):
+        low = (q or "").lower()
+        if any(x in low for x in ("выдуман", "единорог", "unicorn", "fakeplace", "несуществующ")):
+            return None
+        return {"name": q.split(",")[0], "label": q, "lat": 41.65, "lon": 41.64, "query": q}
+
+    monkeypatch.setattr("app.services.verify_places.geocode", fake)
+    monkeypatch.setattr("app.services.geo.geocode", fake)
+
+
 @pytest.fixture
 def client():
     with TestClient(app) as test_client:

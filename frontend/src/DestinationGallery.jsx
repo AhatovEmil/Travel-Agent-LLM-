@@ -118,16 +118,10 @@ export default function DestinationGallery({
 
       <div className="dest-gallery-credit">
         {loading && photos.length === 0 ? (
-          <span>Ищем фото города…</span>
+          <span>Ищем фото…</span>
         ) : current.credit ? (
-          <span>
-            {destination ? `${destination} · ` : ''}
-            {current.credit}
-          </span>
-        ) : photos.length > 1 ? (
-          <span>
-            {safeIndex + 1} / {list.length}
-            {destination ? ` · ${destination}` : ''}
+          <span title={current.credit}>
+            © {(current.credit.split('·')[0] || current.credit).trim().slice(0, 42)}
           </span>
         ) : null}
       </div>

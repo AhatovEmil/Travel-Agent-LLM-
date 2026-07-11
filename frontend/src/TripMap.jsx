@@ -27,17 +27,21 @@ export default function TripMap({ center, places, route }) {
     const L = window.L
     if (!L || !ref.current || !center) return
 
+    // Leaflet 1.9+ по умолчанию рисует флаг в attribution — убираем префикс целиком
+    if (L.Control?.Attribution?.prototype?.options) {
+      L.Control.Attribution.prototype.options.prefix = false
+    }
+
     if (mapRef.current) {
       mapRef.current.remove()
       mapRef.current = null
     }
 
-    const map = L.map(ref.current, { scrollWheelZoom: false }).setView(
-      [center.lat, center.lon],
-      12,
-    )
+    const map = L.map(ref.current, {
+      scrollWheelZoom: false,
+      attributionControl: false,
+    }).setView([center.lat, center.lon], 12)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
       maxZoom: 18,
     }).addTo(map)
 
@@ -86,5 +90,10 @@ export default function TripMap({ center, places, route }) {
     return <p className="muted">Карта появится, когда найдём координаты направления.</p>
   }
 
-  return <div className="trip-map" ref={ref} />
+  return (
+    <div className="trip-map-wrap">
+      <div className="trip-map" ref={ref} />
+      <p className="muted small map-attrib">Карта © OpenStreetMap</p>
+    </div>
+  )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import LinkButtons, { FeasibilityBadge } from '../LinkButtons.jsx'
+import LinkButtons, { FeasibilityBadge, hasBookingOffers } from '../LinkButtons.jsx'
 import Markdown, { plainText } from '../Markdown.jsx'
 import { api } from '../api.js'
 
@@ -83,7 +83,7 @@ export default function ShareTrip({ token }) {
         />
       </div>
 
-      {data.links && (
+      {hasBookingOffers(data.links) && (
         <section className="booking-section booking-top">
           <h2>Жильё и билеты</h2>
           <LinkButtons links={data.links} />

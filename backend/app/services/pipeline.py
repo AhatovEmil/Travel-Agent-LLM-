@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from ..database import SessionLocal
 from ..models import Artifact, ArtifactVersion, Trip, Vote
 from .engine import LLMGenerationError, get_engine
+from .parse import extract_destination
+from .verify_places import harden_itinerary
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,32 @@ def _archive_itinerary(
     _trim_versions(db, trip.id)
 
 
+def _finalize_itinerary(engine, trip: Trip, content: str) -> str:
+    """Геопроверка мест + LLM-замена выдуманных + пометка остатка."""
+    destination = extract_destination(trip.brief or "", trip.name or "")
+
+    fix_fn = None
+    if engine is not None:
+
+        def _llm_fix(text: str, dest: str, bad: list[str]) -> str:
+            return engine.fix_unverified_places(text, dest, bad)
+
+        fix_fn = _llm_fix
+
+    hardened, report = harden_itinerary(content, destination, fix_fn=fix_fn)
+    if report.get("originally_unverified") or report.get("marked"):
+        logger.info(
+            "Trip %s place harden: orig=%s marked=%s llm=%s",
+            trip.id,
+            report.get("originally_unverified"),
+            report.get("marked"),
+            report.get("llm_fix_applied"),
+        )
+    if engine is not None:
+        engine._context["itinerary"] = hardened
+    return hardened
+
+
 def _save_artifact(
     db: Session,
     trip: Trip,
@@ -64,8 +92,10 @@ def _save_artifact(
     *,
     source: str = "pipeline",
     source_meta: str = "",
+    engine=None,
 ) -> None:
     if phase == "itinerary":
+        content = _finalize_itinerary(engine, trip, content)
         _archive_itinerary(db, trip, source=source, source_meta=source_meta)
     existing = [a for a in trip.artifacts if a.phase == phase]
     for artifact in existing:
@@ -107,7 +137,7 @@ def run_pipeline(trip_id: int) -> None:
             db.commit()
             content = engine.regenerate_phase(phase, trip.name, trip.brief)
             # First itinerary of a fresh run has nothing to archive (already cleared)
-            _save_artifact(db, trip, phase, content, source="pipeline")
+            _save_artifact(db, trip, phase, content, source="pipeline", engine=engine)
             time.sleep(0.8)
 
         trip.status = "completed"
@@ -153,7 +183,7 @@ def run_single_phase(trip_id: int, phase: str) -> None:
         engine = get_engine()
         engine.load_context_from_artifacts(_artifacts_map(trip))
         content = engine.regenerate_phase(phase, trip.name, trip.brief)
-        _save_artifact(db, trip, phase, content, source="phase_rerun")
+        _save_artifact(db, trip, phase, content, source="phase_rerun", engine=engine)
 
         trip.status = "completed"
         db.commit()
@@ -207,6 +237,7 @@ def run_chat_revise(trip_id: int, message: str) -> None:
             revised,
             source="chat_revise",
             source_meta=message,
+            engine=engine,
         )
 
         trip.status = "completed"
@@ -275,6 +306,7 @@ def run_live_adjust(trip_id: int, reason: str, message: str = "") -> None:
             revised,
             source="live_adjust",
             source_meta=reason + (f": {message}" if message else ""),
+            engine=engine,
         )
         trip.status = "completed"
         db.commit()
@@ -341,6 +373,7 @@ def run_rebuild_from_votes(trip_id: int) -> None:
             revised,
             source="rebuild_votes",
             source_meta=f"{len(votes)} голосов",
+            engine=engine,
         )
         trip.status = "completed"
         db.commit()

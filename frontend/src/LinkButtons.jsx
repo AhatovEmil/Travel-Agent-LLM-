@@ -37,11 +37,18 @@ function normalizeTickets(links) {
   return []
 }
 
+/** Есть ли жильё/билеты (не только карта) — для скрытия пустой секции. */
+export function hasBookingOffers(links) {
+  if (!links) return false
+  return normalizeStay(links).length > 0 || normalizeTickets(links).length > 0
+}
+
 export default function LinkButtons({ links, compact = false }) {
   if (!links) return null
 
   const stay = normalizeStay(links)
   const tickets = normalizeTickets(links)
+  if (!stay.length && !tickets.length && !links.maps) return null
 
   return (
     <div className={`link-panel ${compact ? 'compact' : ''}`}>

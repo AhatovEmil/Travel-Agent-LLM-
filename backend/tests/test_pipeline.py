@@ -15,6 +15,13 @@ def _mock_engine(monkeypatch):
     engine = TravelEngine()
 
     def fake_complete(prompt, temperature=0.5):
+        if "НЕ найдены на карте" in prompt or "ВЫДУМАНЫ" in prompt:
+            return (
+                "## День 1 — 2026-07-12 — обзор\n\n"
+                "### 09:00–11:00 — Батумский бульвар\nПрогулка.\n\n"
+                "### 11:30–13:00 — Кафе на набережной\nОбед.\n\n"
+                "## Запасной план на плохую погоду\nКафе."
+            )
         if "Вопрос пользователя:" in prompt:
             return "На еду ориентировочно 2000–3000 ₽ в день. Цены нужно уточнять на месте."
         if "Голоса спутников:" in prompt or "Перепиши Itinerary целиком с учётом голосов" in prompt:

@@ -47,16 +47,18 @@ def test_links_shape():
 
     links = place_links("Бульвар", "Батуми", checkin=date(2026, 7, 12), nights=5)
     assert "yandex.ru/maps" in links["maps"]
-    assert "booking.com" in links["booking"]
-    assert "ss=Батуми" in links["booking"] or "ss=%D0%91" in links["booking"]
-    assert "checkin=2026-07-12" in links["booking"]
-    assert "checkout=2026-07-17" in links["booking"]
-    assert any(s["id"] == "ostrovok" for s in links["stay"])
-    assert "Батуми" in links["stay"][1]["url"] or "%D0%91" in links["stay"][1]["url"]
-    assert "12.07.2026" in links["stay"][1]["url"] or "12.07.2026" in links["stay"][1]["url"].replace("%2E", ".")
-    assert any(s["id"] == "yandex_hotels" for s in links["stay"])
-    assert "query=" in links["stay"][2]["url"]
-    assert any(t["id"] == "aviasales" for t in links["tickets"])
-    assert "destination_name=" in links["tickets"][0]["url"]
-    assert any(t["id"] == "tutu" for t in links["tickets"])
+    assert "Батуми" in links["maps"] or "%D0%91" in links["maps"]
+    assert links["booking"] == "https://www.booking.com/"
+    assert links["checkin"] == "2026-07-12"
+    assert links["checkout"] == "2026-07-17"
+    assert links["nights"] == 5
+    by_id = {s["id"]: s["url"] for s in links["stay"]}
+    assert by_id["ostrovok"] == "https://ostrovok.ru/"
+    assert by_id["yandex_hotels"] == "https://travel.yandex.ru/hotels/"
+    assert by_id["sutochno"] == "https://sutochno.ru/"
+    tickets = {t["id"]: t["url"] for t in links["tickets"]}
+    assert tickets["aviasales"] == "https://www.aviasales.ru/"
+    assert tickets["yandex_avia"] == "https://travel.yandex.ru/avia/"
+    assert tickets["yandex_trains"] == "https://travel.yandex.ru/trains/"
+    assert tickets["tutu"] == "https://www.tutu.ru/"
     assert destination_links("Батуми", checkin=date(2026, 7, 12))["maps"]

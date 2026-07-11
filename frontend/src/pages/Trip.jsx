@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import AskChat from '../AskChat.jsx'
 import { coverForText } from '../covers.js'
 import DestinationGallery from '../DestinationGallery.jsx'
-import LinkButtons, { FeasibilityBadge } from '../LinkButtons.jsx'
+import LinkButtons, { FeasibilityBadge, hasBookingOffers } from '../LinkButtons.jsx'
 import Markdown, { plainText } from '../Markdown.jsx'
 import { announceTripReady, ensureNotifyPermission } from '../notify.js'
 import StreetSmart, { DayQuest } from '../StreetSmart.jsx'
@@ -490,7 +490,7 @@ export default function Trip({ tripId, onBack }) {
         Черновик от ИИ — адреса и цены ориентировочные.
       </p>
 
-      {mode === 'plan' && idle && extras?.links && (
+      {mode === 'plan' && idle && hasBookingOffers(extras?.links) && (
         <section className="booking-section booking-top">
           <div className="section-title">
             <h2>Жильё и билеты</h2>
@@ -689,8 +689,7 @@ export default function Trip({ tripId, onBack }) {
           <div>
             <strong>Догружаем карту и погоду</strong>
             <p className="muted small">
-              План уже готов — точки на карте и прогноз появятся через несколько секунд. Можно
-              листать дни ниже.
+              План уже готов — точки на карте и прогноз появятся через несколько секунд.
             </p>
           </div>
         </div>
@@ -791,130 +790,135 @@ export default function Trip({ tripId, onBack }) {
                 ? `Маршрут дня ${mapDaySafe + 1}: ${mapRoute.length} точек на карте`
                 : mapRoute.length === 1
                   ? `Одна точка с координатами в дне ${mapDaySafe + 1}`
-                  : 'Для этого дня координат слотов пока нет — показан центр направления'}
+                  : 'Показан центр направления'}
             </p>
           )}
         </section>
       )}
 
       {mode === 'plan' && (
-      <section>
-        <div className="section-title">
-          <h2>План по дням</h2>
-          {itinerary && idle && (
-            <button className="ghost compact" onClick={() => rerunPhase('itinerary')}>
-              Перегенерировать план
-            </button>
-          )}
-        </div>
-        {!itinerary && (
-          <div className="await-card">
-            <img src={cover} alt="" />
-            <div>
-              <strong>План по дням ещё собирается</strong>
-              <p className="muted">
-                {trip.status === 'running'
-                  ? 'Скоро появятся слоты, карта и ссылки на бронирование. Готовые фазы уже выше.'
-                  : 'Запустите генерацию или перегенерируйте itinerary.'}
-              </p>
-            </div>
+        <section className="plan-days-section">
+          <div className="section-title">
+            <h2>План по дням</h2>
+            {itinerary && idle && (
+              <button className="ghost compact" onClick={() => rerunPhase('itinerary')}>
+                Перегенерировать план
+              </button>
+            )}
           </div>
-        )}
-        {itinerary && !days && (
-          <div className="await-card compact">
-            <div>
-              <strong>Раскладываю план по дням…</strong>
-              <p className="muted">Секунду — появятся слоты, без стены текста.</p>
-            </div>
-          </div>
-        )}
-        {itinerary && days && (
-          <div className="day-cards">
-            {days.map((day, idx) => (
-              <div
-                key={`${day.title}-${idx}`}
-                className={`day-card ${openDay === idx ? 'open' : ''} ${mapDaySafe === idx ? 'on-map' : ''}`}
-              >
-                <button
-                  className="row expander day-expander"
-                  onClick={() => {
-                    if (openDay === idx) setOpenDay(-1)
-                    else selectDay(idx)
-                  }}
-                >
-                  <div className="day-expander-copy">
-                    <strong>
-                      {plainText(day.title)}
-                      {day.date ? ` · ${day.date}` : ''}
-                    </strong>
-                    {day.weather && (
-                      <span className="day-weather-badge" title="Прогноз на день">
-                        <em>{day.weather.label}</em>
-                        <span>
-                          {day.weather.temp_min}°…{day.weather.temp_max}°
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                  <span className="day-expander-chevron">{openDay === idx ? '▾' : '▸'}</span>
-                </button>
-                {openDay === idx && (
-                  <div className="day-body">
-                    {day.weather && (
-                      <div className="day-weather-panel">
-                        <strong>{day.weather.label}</strong>
-                        <span>
-                          {day.weather.temp_min}° … {day.weather.temp_max}°
-                        </span>
-                        <em className="muted small">Open-Meteo, ориентир</em>
-                      </div>
-                    )}
-                    <DayQuest tripId={tripId} dayIndex={idx} dayTitle={day.title} />
-                    {day.slots?.length > 0 ? (
-                      <div className="slot-list">
-                        {day.slots.map((slot, slotIdx) => {
-                          const counts = voteCounts(slot.slot_key)
-                          return (
-                            <div key={slot.slot_key} className="slot-card">
-                              <div className="row slot-card-head">
-                                <span className="slot-num">{slotIdx + 1}</span>
-                                <strong>
-                                  {slot.start}–{slot.end}
-                                </strong>
-                                <span className="slot-place">{plainText(slot.place)}</span>
-                              </div>
-                              {slot.body && <Markdown>{slot.body}</Markdown>}
-                              {slot.transfer && (
-                                <p className="muted small transfer-line">
-                                  → {slot.transfer.to}
-                                  {slot.transfer.distance_km != null
-                                    ? ` · ${slot.transfer.distance_km} км пешком ~${slot.transfer.walk_min} мин`
-                                    : ''}
-                                  {slot.transfer.gap_min != null
-                                    ? ` · окно ${slot.transfer.gap_min} мин`
-                                    : ''}{' '}
-                                  <FeasibilityBadge value={slot.transfer.feasibility} />
-                                </p>
-                              )}
-                              {(counts.want > 0 || counts.skip > 0) && (
-                                <p className="muted small">
-                                  Голоса: 👍 {counts.want} · 👎 {counts.skip}
-                                </p>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <Markdown>{day.content}</Markdown>
-                    )}
-                  </div>
-                )}
+          {!itinerary && (
+            <div className="await-card">
+              <img src={cover} alt="" />
+              <div>
+                <strong>План по дням ещё собирается</strong>
+                <p className="muted">
+                  {trip.status === 'running'
+                    ? 'Скоро появятся слоты, карта и ссылки на бронирование. Готовые фазы уже выше.'
+                    : 'Запустите генерацию или перегенерируйте план.'}
+                </p>
               </div>
-            ))}
-          </div>
-        )}
-      </section>
+            </div>
+          )}
+          {itinerary && !days && (
+            <div className="await-card compact">
+              <div>
+                <strong>Раскладываю план по дням…</strong>
+                <p className="muted">Секунду — появятся слоты, без стены текста.</p>
+              </div>
+            </div>
+          )}
+          {itinerary && days && (
+            <div className="day-cards">
+              {days.map((day, idx) => (
+                <div
+                  key={`${day.title}-${idx}`}
+                  className={`day-card ${openDay === idx ? 'open' : ''} ${mapDaySafe === idx ? 'on-map' : ''}`}
+                >
+                  <button
+                    className="row expander day-expander"
+                    onClick={() => {
+                      if (openDay === idx) setOpenDay(-1)
+                      else selectDay(idx)
+                    }}
+                  >
+                    <div className="day-expander-copy">
+                      <strong>
+                        {plainText(day.title)}
+                        {day.date ? ` · ${day.date}` : ''}
+                      </strong>
+                      {day.weather && (
+                        <span className="day-weather-badge" title="Прогноз на день">
+                          <em>{day.weather.label}</em>
+                          <span>
+                            {day.weather.temp_min}°…{day.weather.temp_max}°
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                    <span className="day-expander-chevron">{openDay === idx ? '▾' : '▸'}</span>
+                  </button>
+                  {openDay === idx && (
+                    <div className="day-body">
+                      {day.weather && (
+                        <div className="day-weather-panel">
+                          <strong>{day.weather.label}</strong>
+                          <span>
+                            {day.weather.temp_min}° … {day.weather.temp_max}°
+                          </span>
+                          <em className="muted small">Open-Meteo, ориентир</em>
+                        </div>
+                      )}
+                      <DayQuest tripId={tripId} dayIndex={idx} dayTitle={day.title} />
+                      {day.slots?.length > 0 ? (
+                        <div className="slot-list">
+                          {day.slots.map((slot, slotIdx) => {
+                            const counts = voteCounts(slot.slot_key)
+                            return (
+                              <div key={slot.slot_key} className="slot-card">
+                                <div className="row slot-card-head">
+                                  <span className="slot-num">{slotIdx + 1}</span>
+                                  <strong>
+                                    {slot.start}–{slot.end}
+                                  </strong>
+                                  <span className="slot-place">{plainText(slot.place)}</span>
+                                  {/уточнить/i.test(slot.place || '') && (
+                                    <span className="slot-unverified" title="Место не найдено на карте">
+                                      уточнить
+                                    </span>
+                                  )}
+                                </div>
+                                {slot.body && <Markdown>{slot.body}</Markdown>}
+                                {slot.transfer && (
+                                  <p className="muted small transfer-line">
+                                    → {slot.transfer.to}
+                                    {slot.transfer.distance_km != null
+                                      ? ` · ${slot.transfer.distance_km} км пешком ~${slot.transfer.walk_min} мин`
+                                      : ''}
+                                    {slot.transfer.gap_min != null
+                                      ? ` · окно ${slot.transfer.gap_min} мин`
+                                      : ''}{' '}
+                                    <FeasibilityBadge value={slot.transfer.feasibility} />
+                                  </p>
+                                )}
+                                {(counts.want > 0 || counts.skip > 0) && (
+                                  <p className="muted small">
+                                    Голоса: 👍 {counts.want} · 👎 {counts.skip}
+                                  </p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <Markdown>{day.content}</Markdown>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       {mode === 'onsite' && idle && itinerary && <StreetSmart tripId={tripId} />}
@@ -1019,8 +1023,8 @@ export default function Trip({ tripId, onBack }) {
       )}
 
       {mode === 'plan' && idle && (
-        <section>
-          <h2>Остальные документы</h2>
+        <section className="docs-section">
+          <h2>Документы</h2>
           {otherArtifacts.length === 0 && (
             <div className="await-card compact">
               <img src="/images/empty-bag.jpg" alt="" />
@@ -1036,7 +1040,7 @@ export default function Trip({ tripId, onBack }) {
                 className="row expander"
                 onClick={() => setOpenArtifact(openArtifact === a.id ? null : a.id)}
               >
-                <strong>{a.title}</strong>
+                <strong>{PHASE_TITLES[a.phase] || a.title}</strong>
                 <span className="row gap">
                   <span
                     className="linkish"

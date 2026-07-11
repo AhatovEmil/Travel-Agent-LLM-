@@ -190,6 +190,34 @@ class TravelEngine:
         self._context["itinerary"] = text
         return text
 
+    def fix_unverified_places(
+        self,
+        itinerary: str,
+        destination: str,
+        bad_places: list[str],
+    ) -> str:
+        """Заменяет места, не найденные на карте, на реальные или мягкие формулировки."""
+        if not bad_places:
+            return itinerary
+        listed = "\n".join(f"- {p}" for p in bad_places[:24])
+        rewritten = self._complete(
+            f"Направление поездки: {destination}.\n\n"
+            "Эти названия мест НЕ найдены на карте OpenStreetMap и скорее всего ВЫДУМАНЫ:\n"
+            f"{listed}\n\n"
+            "Перепиши itinerary ЦЕЛИКОМ:\n"
+            "- замени каждое выдуманное место на РЕАЛЬНОЕ известное место в этом направлении "
+            "ИЛИ на мягкую формулировку без фантазийного имени "
+            "(например: «кафе в центре», «набережная», «городской парк», «краеведческий музей»);\n"
+            "- не оставляй выдуманные названия;\n"
+            "- сохрани формат ## День N — YYYY-MM-DD — … и слоты ### HH:MM–HH:MM — Место;\n"
+            "- в конце ## Запасной план на плохую погоду;\n"
+            "- текст на русском.\n\n"
+            f"Исходный план:\n{itinerary[:7000]}",
+            temperature=0.35,
+        )
+        text = rewritten.strip() if rewritten else itinerary
+        return self.ensure_structured_itinerary(text)
+
     def itinerary_needs_structure(self, text: str) -> bool:
         from .parse import parse_itinerary_days
 

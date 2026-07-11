@@ -320,10 +320,11 @@ h1, h2, h3 {
   background:
     linear-gradient(
       180deg,
-      rgba(8, 36, 44, 0.25) 0%,
-      rgba(12, 48, 56, 0.15) 28%,
-      rgba(220, 236, 240, 0.55) 62%,
-      rgba(232, 242, 244, 0.92) 100%
+      rgba(6, 28, 34, 0.5) 0%,
+      rgba(8, 36, 44, 0.32) 28%,
+      rgba(236, 244, 246, 0.88) 55%,
+      #eef5f7 72%,
+      #eef5f7 100%
     );
 }
 
@@ -333,7 +334,7 @@ h1, h2, h3 {
   width: min(440px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 14px;
   animation: riseIn 0.7s cubic-bezier(0.22, 1, 0.36, 1);
   padding-bottom: 8px;
 }
@@ -348,58 +349,89 @@ h1, h2, h3 {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(8, 40, 48, 0.55);
+  color: #06242c;
 }
 
 .auth-brand {
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(3.2rem, 12vw, 4.6rem);
+  font-size: clamp(2.85rem, 11vw, 4.2rem);
   font-weight: 800;
   letter-spacing: -0.05em;
-  color: var(--text);
-  line-height: 0.9;
+  color: #041e24;
+  line-height: 0.92;
 }
 
 .auth-brand span {
   display: inline-block;
-  background: linear-gradient(125deg, #0a5c5c 0%, #0d8a7a 50%, #b86b4a 130%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #0a5c5c;
+  background: none;
+  -webkit-text-fill-color: #0a5c5c;
 }
 
 .auth-tagline {
-  margin: 14px 0 0;
-  font-size: clamp(1.05rem, 3.2vw, 1.2rem);
-  color: rgba(8, 32, 40, 0.72);
-  font-weight: 500;
-  max-width: 18em;
-  line-height: 1.4;
-  animation: riseIn 0.75s ease 0.08s both;
+  margin: 0 0 4px;
+  font-size: 0.98rem;
+  color: #1a3c46;
+  font-weight: 600;
+  line-height: 1.45;
 }
 
 .auth-panel {
-  border-top: 1px solid rgba(12, 55, 68, 0.1);
-  padding-top: 18px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  padding: 18px 16px 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(12, 55, 68, 0.12);
+  background: #fffdf9;
+  box-shadow:
+    0 18px 48px rgba(8, 36, 44, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
   animation: riseIn 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
 }
 
+.auth-panel .tabs {
+  background: rgba(10, 70, 78, 0.1);
+  border: 1px solid rgba(12, 55, 68, 0.08);
+}
+
+.auth-panel .tab {
+  color: #3a5a64;
+  font-weight: 700;
+}
+
+.auth-panel .tab.active {
+  background: #fff;
+  color: #06242c;
+  box-shadow: 0 2px 10px rgba(15, 42, 51, 0.12);
+}
+
+.auth-panel .field-label {
+  color: #1a3c46;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .auth-panel input {
-  background: rgba(255, 255, 255, 0.94);
+  background: #fff;
   border-radius: 14px;
-  border: 1px solid rgba(12, 55, 68, 0.12);
-  min-height: 48px;
+  border: 1.5px solid rgba(12, 55, 68, 0.18);
+  color: #06242c;
+  min-height: 50px;
   font-size: 16px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.auth-panel input::placeholder {
+  color: #6a8490;
+  opacity: 1;
+}
+
 .auth-panel input:focus {
-  border-color: rgba(13, 122, 122, 0.45);
-  box-shadow: 0 0 0 4px rgba(13, 122, 122, 0.12);
+  border-color: rgba(13, 122, 122, 0.55);
+  box-shadow: 0 0 0 4px rgba(13, 122, 122, 0.14);
   outline: none;
 }
 
@@ -410,6 +442,25 @@ h1, h2, h3 {
   font-size: 1.06rem;
   border-radius: 14px;
   letter-spacing: 0.01em;
+  margin-top: 4px;
+}
+
+.auth-faq-link {
+  text-align: center;
+  margin: 2px 0 0;
+}
+
+.auth-faq-link a {
+  color: #0d6a6a;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(13, 106, 106, 0.35);
+}
+
+.auth-faq-link a:hover {
+  color: #085454;
+  border-bottom-color: #085454;
 }
 
 @media (min-width: 900px) {
@@ -423,15 +474,16 @@ h1, h2, h3 {
     background:
       linear-gradient(
         90deg,
-        rgba(8, 36, 44, 0.15) 0%,
-        rgba(8, 36, 44, 0.2) 42%,
-        rgba(232, 242, 244, 0.88) 68%,
-        rgba(236, 244, 246, 0.97) 100%
+        rgba(6, 28, 34, 0.2) 0%,
+        rgba(8, 36, 44, 0.25) 40%,
+        rgba(232, 242, 244, 0.94) 66%,
+        #eef5f7 100%
       );
   }
 
   .auth-stage {
-    width: min(400px, 38vw);
+    width: min(420px, 40vw);
+    gap: 18px;
   }
 
   .auth-hero {
@@ -439,7 +491,36 @@ h1, h2, h3 {
   }
 
   .auth-brand {
-    font-size: clamp(3.4rem, 5vw, 4.8rem);
+    font-size: clamp(3.2rem, 4.8vw, 4.6rem);
+  }
+
+  .auth-brand span {
+    background: linear-gradient(125deg, #085454 0%, #0b6e68 45%, #9a5a3c 130%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .auth-tagline {
+    font-size: 1.05rem;
+    margin-bottom: 6px;
+  }
+
+  .auth-panel {
+    padding: 22px 22px 20px;
+  }
+}
+
+@media (max-width: 899px) {
+  .auth-hero {
+    padding: 8px 4px 2px;
+  }
+
+  .auth-eyebrow,
+  .auth-brand {
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9),
+      0 0 18px rgba(238, 245, 247, 0.95);
   }
 }
 
@@ -1220,15 +1301,18 @@ button:active:not(:disabled) {
   top: 12px;
   right: max(12px, env(safe-area-inset-right));
   z-index: 2;
-  max-width: min(70%, 280px);
+  max-width: min(55%, 200px);
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(8, 30, 36, 0.4);
   color: rgba(255, 255, 255, 0.88);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   line-height: 1.3;
   backdrop-filter: blur(6px);
   text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dest-gallery .trip-cover-copy {
@@ -1244,6 +1328,10 @@ button:active:not(:disabled) {
     transform: translateX(50%);
     padding: 6px 9px 6px 10px;
     gap: 8px;
+  }
+
+  .dest-gallery-credit {
+    display: none;
   }
 
   .dest-gallery-count {
@@ -1871,7 +1959,7 @@ button:active:not(:disabled) {
 }
 
 .map-section {
-  margin: 8px 0 28px;
+  margin: 8px 0 18px;
 }
 
 .map-day-chips {
@@ -1925,6 +2013,20 @@ button:active:not(:disabled) {
 .slot-place {
   flex: 1;
   min-width: 8em;
+}
+
+.slot-unverified {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #8a5a12;
+  background: rgba(180, 120, 20, 0.14);
+  border: 1px solid rgba(180, 120, 20, 0.28);
+  border-radius: 999px;
+  padding: 3px 8px;
+  white-space: nowrap;
 }
 
 .weather-card {
@@ -2043,15 +2145,47 @@ button:active:not(:disabled) {
   animation: riseIn 0.28s ease;
 }
 
+.trip-map-wrap {
+  margin: 8px 0 16px;
+}
+
 .trip-map {
   height: 340px;
   width: 100%;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   overflow: hidden;
-  margin: 8px 0 20px;
+  margin: 0;
   z-index: 1;
   box-shadow: var(--shadow-soft);
+}
+
+/* Leaflet 1.9+ рисует флаг в attribution — не показываем */
+.trip-map .leaflet-control-attribution,
+.trip-map .leaflet-attribution-flag {
+  display: none !important;
+}
+
+.map-attrib {
+  margin: 6px 2px 0;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.plan-days-section {
+  margin: 4px 0 20px;
+}
+
+.plan-days-section .section-title {
+  margin-bottom: 10px;
+}
+
+.docs-section {
+  margin-top: 8px;
+}
+
+.docs-section h2 {
+  margin-bottom: 10px;
 }
 
 .section-title h2 {
@@ -3397,22 +3531,6 @@ button:active:not(:disabled) {
 
 .booking-section.booking-top .link-panel {
   margin-top: 10px;
-}
-
-.auth-faq-link {
-  text-align: center;
-  margin: 4px 0 0;
-}
-
-.auth-faq-link a {
-  color: var(--muted);
-  font-size: 0.92rem;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.auth-faq-link a:hover {
-  color: var(--accent);
 }
 
 .faq-page {

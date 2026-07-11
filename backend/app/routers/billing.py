@@ -131,7 +131,12 @@ async def tribute_webhook(
         )
 
     if not tribute.verify_tribute_signature(body, trbt_signature):
-        log.warning("tribute webhook: bad signature, len(body)=%s", len(body))
+        preview = body[:300].decode("utf-8", errors="replace")
+        log.warning(
+            "tribute webhook: bad signature, len(body)=%s preview=%s",
+            len(body),
+            preview,
+        )
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid Tribute signature")
     try:
         data = json.loads(body.decode("utf-8"))
@@ -140,12 +145,24 @@ async def tribute_webhook(
     if not isinstance(data, dict):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid payload")
 
+    log.info(
+        "tribute webhook event name=%s product=%s tg=%s",
+        data.get("name"),
+        (data.get("payload") or {}).get("product_id")
+        if isinstance(data.get("payload"), dict)
+        else None,
+        (data.get("payload") or {}).get("telegram_user_id")
+        if isinstance(data.get("payload"), dict)
+        else None,
+    )
+
     # Тестовые события без начисления
     name = str(data.get("name") or "")
     if name in ("test", "ping", "webhook_test") or data.get("test") is True:
         return {"ok": True, "action": "test"}
 
     result = tribute.process_tribute_event(data, db)
+    log.info("tribute webhook result=%s", result)
     return result
 
 

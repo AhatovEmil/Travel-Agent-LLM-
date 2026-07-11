@@ -70,8 +70,13 @@ def me(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from ..services import tribute as tribute_svc
+
     billing_svc.roll_free_month(current_user)
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
+    if current_user.telegram_id:
+        tribute_svc.claim_pending_credits(current_user, db)
+        db.refresh(current_user)
     return _user_out(current_user)

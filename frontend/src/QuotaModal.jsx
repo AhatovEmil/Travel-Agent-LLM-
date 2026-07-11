@@ -114,16 +114,18 @@ export default function QuotaModal({ open, onClose, initialDetail = null, quota 
         </p>
 
         <div className="quota-tg-block">
+          <h3 className="quota-tg-title">Привязка Telegram</h3>
           {linked ? (
-            <p className="muted small">Telegram привязан — оплаты Tribute начислятся автоматически.</p>
+            <p className="muted small">✓ Telegram привязан — оплаты Tribute начислятся автоматически.</p>
           ) : (
             <>
               <p className="muted small">
-                Сначала привяжите Telegram, затем купите пакет в боте (ссылка Tribute).
+                Нажмите синюю кнопку ниже «Log in with Telegram» / «Войти через Telegram».
+                Без этого оплата в боте не попадёт на ваш аккаунт.
               </p>
               <div id="tg-login-slot" className="tg-login-slot" />
               {!botUsername ? (
-                <p className="muted small">Виджет входа появится после настройки TELEGRAM_BOT_USERNAME.</p>
+                <p className="muted small">Виджет не настроен (TELEGRAM_BOT_USERNAME).</p>
               ) : null}
             </>
           )}
@@ -168,16 +170,23 @@ export default function QuotaModal({ open, onClose, initialDetail = null, quota 
 /** Кнопка-счётчик в шапке */
 export function QuotaBadge({ quota, onClick }) {
   if (!quota) return null
-  const { free_left: left, free_limit: limit, credit_balance: credits } = quota
-  const label = credits > 0 ? `${left}/${limit} · +${credits}` : `${left}/${limit}`
+  const { free_left: left, free_limit: limit, credit_balance: credits, telegram_linked: linked } =
+    quota
+  const parts = [`${left}/${limit}`]
+  if (credits > 0) parts.push(`+${credits}`)
+  if (!linked) parts.push('TG')
   return (
     <button
       type="button"
-      className="ghost compact quota-badge"
+      className={`ghost compact quota-badge${!linked ? ' quota-badge-warn' : ''}`}
       onClick={onClick}
-      title="Лимит генераций плана в месяц"
+      title={
+        linked
+          ? 'Лимит генераций и покупка'
+          : 'Нажмите: привязать Telegram и купить генерации'
+      }
     >
-      {label}
+      {parts.join(' · ')}
     </button>
   )
 }

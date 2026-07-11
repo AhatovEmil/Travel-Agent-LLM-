@@ -38,8 +38,23 @@ def telegram_api(method: str, payload: dict) -> dict | None:
         return None
 
 
+def ensure_bot_commands() -> None:
+    """Меню команд у кнопки «/» и подсказка к Start."""
+    telegram_api(
+        "setMyCommands",
+        {
+            "commands": [
+                {"command": "start", "description": "Начать — пакеты генераций"},
+                {"command": "buy", "description": "Купить генерации"},
+                {"command": "buy10", "description": "Пакет 10 генераций"},
+                {"command": "buy30", "description": "Пакет 30 генераций"},
+                {"command": "buy100", "description": "Пакет 100 генераций"},
+            ]
+        },
+    )
+
+
 def _packages_with_links() -> list[dict]:
-    """Пакеты у которых есть прямая ссылка Tribute."""
     out = []
     for p in settings.generation_packages:
         link = (p.get("tribute_url") or "").strip()
@@ -48,7 +63,14 @@ def _packages_with_links() -> list[dict]:
     return out
 
 
-def send_buy_menu(chat_id: int | str, pack_hint: str | None = None) -> None:
+def _cmd_parts(text: str) -> tuple[str, str]:
+    """'/start@Bot buy10' → ('/start', 'buy10')."""
+    first, _, rest = text.strip().partition(" ")
+    cmd = first.split("@", 1)[0].lower()
+    return cmd, rest.strip()
+
+
+def send_buy_menu(chat_id: int | str, pack_hint: str | None = None, *, greeting: bool = False) -> None:
     packs = _packages_with_links()
     if not packs:
         telegram_api(
@@ -82,9 +104,9 @@ def send_buy_menu(chat_id: int | str, pack_hint: str | None = None) -> None:
                     "chat_id": chat_id,
                     "text": (
                         f"Оплата: {chosen['label']} — {chosen['price_rub']} ₽\n\n"
-                        "Откройте ссылку Tribute (карта / СБП). "
-                        "После оплаты генерации появятся на сайте, "
-                        "если Telegram привязан к аккаунту."
+                        "Откройте ссылку Tribute (карта / СБП).\n"
+                        "Чтобы кредиты упали на сайт: на ai-travel-assistant.ru "
+                        "нажмите счётчик генераций в шапке → «Войти через Telegram»."
                     ),
                     "reply_markup": {
                         "inline_keyboard": [
@@ -99,15 +121,21 @@ def send_buy_menu(chat_id: int | str, pack_hint: str | None = None) -> None:
         [{"text": f"{p['label']} — {p['price_rub']} ₽", "url": p["tribute_url"]}]
         for p in packs
     ]
+    intro = (
+        "Привет! Я бот оплаты Travel Agent.\n\n"
+        if greeting
+        else ""
+    )
     telegram_api(
         "sendMessage",
         {
             "chat_id": chat_id,
             "text": (
-                "Выберите пакет генераций Travel Agent.\n"
-                "Оплата в Tribute (мини-приложение). "
-                "Перед оплатой привяжите Telegram в личном кабинете на сайте — "
-                "тогда кредиты начислятся автоматически."
+                f"{intro}"
+                "Выберите пакет генераций. Оплата в Tribute (карта / СБП).\n\n"
+                "После оплаты на сайте ai-travel-assistant.ru откройте счётчик "
+                "в шапке (например 5/5) и нажмите «Войти через Telegram» — "
+                "кредиты начислятся автоматически."
             ),
             "reply_markup": {"inline_keyboard": rows},
         },
@@ -123,45 +151,25 @@ def handle_update(update: dict) -> None:
     text = (message.get("text") or "").strip()
     if not text:
         return
-    lower = text.lower()
-    if lower.startswith("/start"):
-        parts = text.split(maxsplit=1)
-        payload = parts[1].strip() if len(parts) > 1 else ""
+
+    cmd, payload = _cmd_parts(text)
+
+    if cmd == "/start":
         if payload.startswith("buy") or payload in ("10", "30", "100"):
             send_buy_menu(chat_id, payload)
         else:
-            telegram_api(
-                "sendMessage",
-                {
-                    "chat_id": chat_id,
-                    "text": (
-                        "Привет! Я бот оплаты Travel Agent.\n\n"
-                        "Команды:\n"
-                        "/buy — пакеты генераций (ссылки Tribute)\n"
-                        "/buy10 /buy30 /buy100 — конкретный пакет\n\n"
-                        "После оплаты привяжите Telegram на сайте "
-                        "ai-travel-assistant.ru — генерации появятся в балансе."
-                    ),
-                    "reply_markup": {
-                        "inline_keyboard": [
-                            [{"text": "Купить генерации", "callback_data": "buy"}]
-                        ]
-                    },
-                },
-            )
-            # сразу меню на всякий случай
-            send_buy_menu(chat_id)
+            send_buy_menu(chat_id, greeting=True)
         return
-    if lower.startswith("/buy10"):
+    if cmd == "/buy10":
         send_buy_menu(chat_id, "buy10")
         return
-    if lower.startswith("/buy30"):
+    if cmd == "/buy30":
         send_buy_menu(chat_id, "buy30")
         return
-    if lower.startswith("/buy100"):
+    if cmd == "/buy100":
         send_buy_menu(chat_id, "buy100")
         return
-    if lower.startswith("/buy"):
+    if cmd == "/buy":
         send_buy_menu(chat_id)
         return
 

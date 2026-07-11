@@ -11,6 +11,13 @@ from .services.recover import fail_stuck_running_trips
 
 fail_stuck_running_trips()
 
+try:
+    from .services.telegram_bot import ensure_bot_commands
+
+    ensure_bot_commands()
+except Exception:
+    pass
+
 _docs = None if settings.is_production else "/docs"
 _redoc = None if settings.is_production else "/redoc"
 _openapi = None if settings.is_production else "/openapi.json"

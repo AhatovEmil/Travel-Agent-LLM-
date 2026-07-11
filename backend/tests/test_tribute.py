@@ -145,12 +145,22 @@ def test_packages_include_buy_url(client, monkeypatch):
     assert "buy10" in pack10["buy_url"]
 
 
-def test_telegram_bot_webhook_ok(client, monkeypatch):
+def test_telegram_bot_start_sends_menu(client, monkeypatch):
     monkeypatch.setattr("app.config.settings.telegram_bot_token", "123:token")
     monkeypatch.setattr("app.routers.billing.settings.telegram_bot_token", "123:token")
     monkeypatch.setattr("app.services.telegram_bot.settings.telegram_bot_token", "123:token")
-    monkeypatch.setattr("app.config.settings.tribute_link_10", "https://example.com/pay10")
-    monkeypatch.setattr("app.services.telegram_bot.settings.tribute_link_10", "https://example.com/pay10")
+    monkeypatch.setattr(
+        "app.config.settings.tribute_link_10", "https://example.com/pay10"
+    )
+    monkeypatch.setattr(
+        "app.services.telegram_bot.settings.tribute_link_10", "https://example.com/pay10"
+    )
+    monkeypatch.setattr(
+        "app.config.settings.tribute_link_30", "https://example.com/pay30"
+    )
+    monkeypatch.setattr(
+        "app.services.telegram_bot.settings.tribute_link_30", "https://example.com/pay30"
+    )
 
     calls = []
 
@@ -162,17 +172,8 @@ def test_telegram_bot_webhook_ok(client, monkeypatch):
 
     r = client.post(
         "/api/billing/telegram/webhook",
-        json={
-            "message": {
-                "chat": {"id": 42},
-                "text": "/buy10",
-            }
-        },
+        json={"message": {"chat": {"id": 7}, "text": "/start"}},
     )
     assert r.status_code == 200
     assert any(m == "sendMessage" for m, _ in calls)
-    assert any(
-        "reply_markup" in p and "https://example.com/pay10" in json.dumps(p)
-        for m, p in calls
-        if m == "sendMessage"
-    )
+    assert any("https://example.com/pay10" in json.dumps(p) for m, p in calls if m == "sendMessage")
